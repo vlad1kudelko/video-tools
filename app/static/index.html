@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>video-tools</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-neutral-950 text-neutral-200 antialiased">
+<div class="flex min-h-screen flex-col md:flex-row">
+
+  <aside class="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
+    <div class="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO&nbsp;TOOLS</div>
+    <nav class="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
+      <button class="rounded-lg bg-indigo-600/20 px-3 py-2 text-left text-sm font-medium text-indigo-300 ring-1 ring-inset ring-indigo-500/40">
+        Размытый фон
+      </button>
+    </nav>
+  </aside>
+
+  <main class="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
+    <h1 class="mb-6 text-lg font-semibold">Переформатирование под соотношение</h1>
+
+    <div class="mb-5 flex items-end gap-3">
+      <label class="text-sm">
+        <span class="mb-1 block text-neutral-400">Ширина</span>
+        <input id="w" type="number" min="2" value="1080"
+               class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500">
+      </label>
+      <span class="pb-2 text-neutral-500">×</span>
+      <label class="text-sm">
+        <span class="mb-1 block text-neutral-400">Высота</span>
+        <input id="h" type="number" min="2" value="1920"
+               class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500">
+      </label>
+    </div>
+
+    <div id="drop"
+         class="cursor-pointer rounded-xl border-2 border-dashed border-neutral-700 bg-neutral-900/40 px-6 py-12 text-center transition">
+      <p class="text-sm text-neutral-400">Перетащите видео сюда или нажмите, чтобы выбрать</p>
+      <ul id="list" class="mx-auto mt-3 max-w-sm space-y-1 text-left text-xs text-neutral-500"></ul>
+    </div>
+    <input id="file" type="file" accept="video/*" multiple class="hidden">
+
+    <button id="go" disabled
+            class="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
+      Обработать
+    </button>
+
+    <div id="panel" class="mt-6 hidden">
+      <div class="mb-2 flex justify-between text-xs text-neutral-400">
+        <span id="status">—</span><span id="pct"></span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+        <div id="bar" class="h-full w-0 bg-indigo-500 transition-all duration-300"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const drop = $("#drop"), input = $("#file"), list = $("#list");
+let files = [];
+
+const render = () => {
+  $("#go").disabled = !files.length;
+  list.innerHTML = files.map(f => `<li class="truncate">• ${f.name}</li>`).join("");
+};
+const hl = on => drop.classList.toggle("border-indigo-500", on) || drop.classList.toggle("bg-neutral-900", on);
+
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); hl(true); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); hl(false); }));
+drop.addEventListener("drop", ev => { files = [...ev.dataTransfer.files]; render(); });
+drop.addEventListener("click", () => input.click());
+input.addEventListener("change", () => { files = [...input.files]; render(); });
+
+const setStatus = (text, pct) => {
+  $("#panel").classList.remove("hidden");
+  $("#status").textContent = text;
+  $("#pct").textContent = pct == null ? "" : pct + "%";
+  $("#bar").style.width = (pct ?? 0) + "%";
+};
+
+$("#go").addEventListener("click", async () => {
+  const fd = new FormData();
+  fd.append("width", $("#w").value);
+  fd.append("height", $("#h").value);
+  files.forEach(f => fd.append("files", f));
+  $("#go").disabled = true;
+  setStatus("Загрузка файлов…", null);
+  const r = await fetch("/api/jobs", { method: "POST", body: fd });
+  if (!r.ok) { setStatus("Ошибка запроса", 0); $("#go").disabled = false; return; }
+  watch((await r.json()).id);
+});
+
+const watch = id => {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/ws/${id}`);
+  ws.onmessage = ev => {
+    const j = JSON.parse(ev.data);
+    if (j.status === "processing") {
+      setStatus(`Обработка ${Math.min(j.done + 1, j.total)} / ${j.total}`,
+                Math.round(((j.done + j.progress) / j.total) * 100));
+    } else if (j.status === "done") {
+      setStatus("Готово — загрузка началась", 100);
+      const a = document.createElement("a");
+      a.href = `/api/jobs/${id}/download`;
+      document.body.appendChild(a); a.click(); a.remove();
+      $("#go").disabled = false;
+    } else {
+      setStatus("Ошибка: " + (j.message || "неизвестно"), 0);
+      $("#go").disabled = false;
+    }
+  };
+};
+</script>
+</body>
+</html>
