@@ -26,7 +26,10 @@
         <input id="w" type="number" min="2" value="1080"
                class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500">
       </label>
-      <span class="pb-2 text-neutral-500">×</span>
+      <button id="swap" title="Поменять Ш и В местами"
+              class="mb-[1px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200">
+        ⇄
+      </button>
       <label class="text-sm">
         <span class="mb-1 block text-neutral-400">Высота</span>
         <input id="h" type="number" min="2" value="1920"
@@ -97,6 +100,10 @@ const applyGravity = g => {
           : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500");
   });
 };
+
+$("#swap").addEventListener("click", () => {
+  [$("#w").value, $("#h").value] = [$("#h").value, $("#w").value];
+});
 
 $$(".mode").forEach(b => b.addEventListener("click", () => applyMode(b.dataset.mode)));
 $$(".g").forEach(b => b.addEventListener("click", () => applyGravity(b.dataset.g)));
