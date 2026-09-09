@@ -12,14 +12,13 @@
   <aside class="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
     <div class="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO&nbsp;TOOLS</div>
     <nav class="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
-      <button class="rounded-lg bg-indigo-600/20 px-3 py-2 text-left text-sm font-medium text-indigo-300 ring-1 ring-inset ring-indigo-500/40">
-        Размытый фон
-      </button>
+      <button class="mode" data-mode="blur">Размытый фон</button>
+      <button class="mode" data-mode="crop">Обрезка (cover)</button>
     </nav>
   </aside>
 
   <main class="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
-    <h1 class="mb-6 text-lg font-semibold">Переформатирование под соотношение</h1>
+    <h1 id="title" class="mb-6 text-lg font-semibold"></h1>
 
     <div class="mb-5 flex items-end gap-3">
       <label class="text-sm">
@@ -33,6 +32,17 @@
         <input id="h" type="number" min="2" value="1920"
                class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500">
       </label>
+    </div>
+
+    <div id="gravity" class="mb-5 hidden">
+      <span class="mb-2 block text-sm text-neutral-400">Прижать при обрезке</span>
+      <div class="grid w-[136px] grid-cols-3 gap-1">
+        <span></span><button class="g" data-g="top">↑</button><span></span>
+        <button class="g" data-g="left">←</button>
+        <button class="g" data-g="center">•</button>
+        <button class="g" data-g="right">→</button>
+        <span></span><button class="g" data-g="bottom">↓</button><span></span>
+      </div>
     </div>
 
     <div id="drop"
@@ -60,8 +70,38 @@
 
 <script>
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 const drop = $("#drop"), input = $("#file"), list = $("#list");
-let files = [];
+let files = [], mode = "blur", gravity = "center";
+
+const TITLES = { blur: "Переформатирование под соотношение", crop: "Обрезка по cover" };
+
+const applyMode = m => {
+  mode = m;
+  $("#title").textContent = TITLES[m];
+  $("#gravity").classList.toggle("hidden", m !== "crop");
+  $$(".mode").forEach(b => {
+    const on = b.dataset.mode === m;
+    b.className = "mode rounded-lg px-3 py-2 text-left text-sm font-medium transition " +
+      (on ? "bg-indigo-600/20 text-indigo-300 ring-1 ring-inset ring-indigo-500/40"
+          : "text-neutral-400 hover:bg-neutral-900");
+  });
+};
+
+const applyGravity = g => {
+  gravity = g;
+  $$(".g").forEach(b => {
+    const on = b.dataset.g === g;
+    b.className = "g flex h-11 items-center justify-center rounded-lg border text-base transition " +
+      (on ? "border-indigo-500 bg-indigo-600/20 text-indigo-300"
+          : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500");
+  });
+};
+
+$$(".mode").forEach(b => b.addEventListener("click", () => applyMode(b.dataset.mode)));
+$$(".g").forEach(b => b.addEventListener("click", () => applyGravity(b.dataset.g)));
+applyMode("blur");
+applyGravity("center");
 
 const render = () => {
   $("#go").disabled = !files.length;
@@ -86,6 +126,8 @@ $("#go").addEventListener("click", async () => {
   const fd = new FormData();
   fd.append("width", $("#w").value);
   fd.append("height", $("#h").value);
+  fd.append("mode", mode);
+  fd.append("gravity", gravity);
   files.forEach(f => fd.append("files", f));
   $("#go").disabled = true;
   setStatus("Загрузка файлов…", null);

@@ -27,6 +27,15 @@ class Job:
     is_zip: bool = False
 
 
+CROP_XY = {
+    "center": "",
+    "left": ":0:(ih-oh)/2",
+    "right": ":iw-ow:(ih-oh)/2",
+    "top": ":(iw-ow)/2:0",
+    "bottom": ":(iw-ow)/2:ih-oh",
+}
+
+
 def blur_filter(w: int, h: int) -> str:
     """Scale the video to fit and fill the padding with a blurred cover of itself."""
     return (
@@ -35,6 +44,14 @@ def blur_filter(w: int, h: int) -> str:
         f"crop={w}:{h},gblur=sigma=25,eq=brightness=-0.1[bg];"
         f"[fg]scale={w}:{h}:force_original_aspect_ratio=decrease[fg];"
         f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1"
+    )
+
+
+def crop_filter(w: int, h: int, gravity: str) -> str:
+    """Scale to cover the target and crop the overflow toward the given edge."""
+    return (
+        f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+        f"crop={w}:{h}{CROP_XY.get(gravity, '')},setsar=1"
     )
 
 
@@ -51,10 +68,10 @@ async def probe_duration(src: Path) -> float:
         return 0.0
 
 
-async def run_ffmpeg(src: Path, dst: Path, w: int, h: int, job: Job) -> None:
+async def run_ffmpeg(src: Path, dst: Path, vf: str, job: Job) -> None:
     dur = await probe_duration(src)
     proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-y", "-i", str(src), "-filter_complex", blur_filter(w, h),
+        "ffmpeg", "-y", "-i", str(src), "-filter_complex", vf,
         "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats", str(dst),
@@ -74,7 +91,7 @@ async def run_ffmpeg(src: Path, dst: Path, w: int, h: int, job: Job) -> None:
     job.progress = 1.0
 
 
-async def process_job(job: Job, payload: list[tuple[str, bytes]], w: int, h: int) -> None:
+async def process_job(job: Job, payload: list[tuple[str, bytes]], vf: str, suffix: str) -> None:
     workdir = TMP / job.id
     workdir.mkdir(parents=True, exist_ok=True)
     outs: list[Path] = []
@@ -82,9 +99,9 @@ async def process_job(job: Job, payload: list[tuple[str, bytes]], w: int, h: int
         for i, (name, data) in enumerate(payload):
             src = workdir / f"in{i}"
             src.write_bytes(data)
-            dst = workdir / f"{Path(name).stem or 'video'}_{w}x{h}.mp4"
+            dst = workdir / f"{Path(name).stem or 'video'}_{suffix}.mp4"
             job.progress = 0.0
-            await run_ffmpeg(src, dst, w, h, job)
+            await run_ffmpeg(src, dst, vf, job)
             src.unlink(missing_ok=True)
             outs.append(dst)
             job.done = i + 1
@@ -114,15 +131,18 @@ app = FastAPI()
 async def create_job(
     width: int = Form(...),
     height: int = Form(...),
+    mode: str = Form("blur"),
+    gravity: str = Form("center"),
     files: list[UploadFile] = File(...),
 ):
     if width < 2 or height < 2 or not files:
         raise HTTPException(400, "bad params")
     w, h = width - width % 2, height - height % 2
+    vf = crop_filter(w, h, gravity) if mode == "crop" else blur_filter(w, h)
     payload = [(f.filename or "video", await f.read()) for f in files]
     job = Job(id=uuid4().hex[:12], total=len(payload))
     JOBS[job.id] = job
-    asyncio.create_task(process_job(job, payload, w, h))
+    asyncio.create_task(process_job(job, payload, vf, f"{w}x{h}"))
     return {"id": job.id}
 
 
