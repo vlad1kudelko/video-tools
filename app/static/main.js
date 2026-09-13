@@ -20,7 +20,7 @@ function App() {
   return html`
     <div class="flex min-h-screen flex-col md:flex-row">
       <aside class="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
-        <div class="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO&nbsp;TOOLS</div>
+        <div class="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO TOOLS</div>
         <nav class="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
           ${TABS.map(t => html`
             <button key=${t.id} class=${navBtnClass(t.id === tab)} onClick=${() => setTab(t.id)}>${t.label}</button>
