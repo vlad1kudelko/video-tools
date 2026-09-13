@@ -1,9 +1,6 @@
-import shutil
 from dataclasses import dataclass, field
-from pathlib import Path
 from uuid import uuid4
 
-from ..config import TMP
 from .links import MediaLink
 
 
@@ -12,8 +9,8 @@ class MaterialsJob:
     id: str
     status: str = "scanning"  # scanning | done | error
     message: str = ""
+    filename: str = ""
     items: list[MediaLink] = field(default_factory=list)
-    result: Path | None = None
 
 
 JOBS: dict[str, MaterialsJob] = {}
@@ -27,4 +24,3 @@ def new_job() -> MaterialsJob:
 
 def cleanup(job_id: str) -> None:
     JOBS.pop(job_id, None)
-    shutil.rmtree(TMP / job_id, ignore_errors=True)

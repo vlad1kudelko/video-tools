@@ -1,8 +1,5 @@
-from pathlib import Path
-
 import httpx
 
-from ..config import TMP
 from .github import RepoNotFound, fetch_readme_text, fetch_repo_info, parse_repo
 from .jobs import MaterialsJob
 from .links import extract_media
@@ -18,28 +15,13 @@ def _add(job: MaterialsJob, new_items: list) -> None:
             existing.add(it.url)
 
 
-def _write_links_txt(job: MaterialsJob) -> Path:
-    workdir = TMP / job.id
-    workdir.mkdir(parents=True, exist_ok=True)
-    path = workdir / "links.txt"
-    lines: list[str] = []
-    for kind, title in (("image", "images"), ("gif", "gifs"), ("video", "videos")):
-        urls = [it.url for it in job.items if it.kind == kind]
-        if not urls:
-            continue
-        lines.append(f"# {title}")
-        lines.extend(urls)
-        lines.append("")
-    path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
-    return path
-
-
 async def run_scan(job: MaterialsJob, repo_url: str) -> None:
     parsed = parse_repo(repo_url)
     if not parsed:
         job.status, job.message = "error", "Некорректная ссылка на репозиторий"
         return
     owner, repo = parsed
+    job.filename = f"{owner}/{repo}".lower().replace("/", "--") + ".txt"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             job.message = "Проверка репозитория"
@@ -66,7 +48,6 @@ async def run_scan(job: MaterialsJob, repo_url: str) -> None:
                 except httpx.HTTPError:
                     warning = "Сайт недоступен — использованы только данные README"
 
-        job.result = _write_links_txt(job)
         job.message = warning or "Готово"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001

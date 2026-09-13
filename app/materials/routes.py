@@ -1,8 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Form, HTTPException, WebSocket
-from fastapi.responses import FileResponse
-from starlette.background import BackgroundTask
+from fastapi import APIRouter, Form, WebSocket
 
 from .jobs import JOBS, cleanup, new_job
 from .scan import run_scan
@@ -28,22 +26,11 @@ async def ws(job_id: str, sock: WebSocket):
         await sock.send_json({
             "status": job.status,
             "message": job.message,
+            "filename": job.filename,
             "items": [{"url": i.url, "kind": i.kind, "source": i.source} for i in job.items],
         })
         if job.status != "scanning":
             break
         await asyncio.sleep(0.25)
     await sock.close()
-
-
-@router.get("/api/materials/{job_id}/download")
-def download(job_id: str):
-    job = JOBS.get(job_id)
-    if not job or job.status != "done" or not job.result or not job.result.exists():
-        raise HTTPException(404)
-    return FileResponse(
-        job.result,
-        media_type="text/plain",
-        filename="links.txt",
-        background=BackgroundTask(cleanup, job_id),
-    )
+    cleanup(job_id)
