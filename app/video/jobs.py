@@ -3,7 +3,7 @@ import zipfile
 from pathlib import Path
 from uuid import uuid4
 
-from .config import TMP
+from ..config import TMP
 from .domain import Job
 from .ffmpeg import run_ffmpeg
 
