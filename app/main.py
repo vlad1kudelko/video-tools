@@ -2,10 +2,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import STATIC, TMP
+from .materials.routes import router as materials_router
 from .routes import router
 
 app = FastAPI()
 app.include_router(router)
+app.include_router(materials_router)
 
 
 @app.on_event("startup")

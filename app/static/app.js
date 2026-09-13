@@ -3,12 +3,18 @@ const $$ = s => [...document.querySelectorAll(s)];
 const drop = $("#drop"), input = $("#file"), list = $("#list");
 let files = [], mode = "blur", gravity = "center";
 
-const TITLES = { blur: "Переформатирование под соотношение", crop: "Обрезка по cover" };
+const TITLES = {
+  blur: "Переформатирование под соотношение",
+  crop: "Обрезка по cover",
+  materials: "Подготовка материала",
+};
 
 const applyMode = m => {
   mode = m;
   $("#title").textContent = TITLES[m];
   $("#gravity").classList.toggle("hidden", m !== "crop");
+  $("#video-panel").classList.toggle("hidden", m === "materials");
+  $("#materials-panel").classList.toggle("hidden", m !== "materials");
   $$(".mode").forEach(b => {
     const on = b.dataset.mode === m;
     b.className = "mode rounded-lg px-3 py-2 text-left text-sm font-medium transition " +

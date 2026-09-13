@@ -19,92 +19,137 @@
         <nav class="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
           <button class="mode" data-mode="blur">Размытый фон</button>
           <button class="mode" data-mode="crop">Обрезка (cover)</button>
+          <button class="mode" data-mode="materials">Подготовка материала</button>
         </nav>
       </aside>
 
       <main class="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
         <h1 id="title" class="mb-6 text-lg font-semibold"></h1>
 
-        <div class="mb-5 flex items-end gap-3">
-          <label class="text-sm">
-            <span class="mb-1 block text-neutral-400">Ширина</span>
-            <input
-              id="w"
-              type="number"
-              min="2"
-              value="1080"
-              class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500"
-            />
-          </label>
+        <div id="video-panel">
+          <div class="mb-5 flex items-end gap-3">
+            <label class="text-sm">
+              <span class="mb-1 block text-neutral-400">Ширина</span>
+              <input
+                id="w"
+                type="number"
+                min="2"
+                value="1080"
+                class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500"
+              />
+            </label>
+            <button
+              id="swap"
+              title="Поменять Ш и В местами"
+              class="mb-[1px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
+            >
+              ⇄
+            </button>
+            <label class="text-sm">
+              <span class="mb-1 block text-neutral-400">Высота</span>
+              <input
+                id="h"
+                type="number"
+                min="2"
+                value="1920"
+                class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500"
+              />
+            </label>
+          </div>
+
+          <div id="gravity" class="mb-5 hidden">
+            <span class="mb-2 block text-sm text-neutral-400"
+              >Прижать при обрезке</span
+            >
+            <div class="grid w-[136px] grid-cols-3 gap-1">
+              <span></span><button class="g" data-g="top">↑</button><span></span>
+              <button class="g" data-g="left">←</button>
+              <button class="g" data-g="center">•</button>
+              <button class="g" data-g="right">→</button>
+              <span></span><button class="g" data-g="bottom">↓</button
+              ><span></span>
+            </div>
+          </div>
+
+          <div
+            id="drop"
+            class="cursor-pointer rounded-xl border-2 border-dashed border-neutral-700 bg-neutral-900/40 px-6 py-12 text-center transition"
+          >
+            <p class="text-sm text-neutral-400">
+              Перетащите видео сюда или нажмите, чтобы выбрать
+            </p>
+            <ul
+              id="list"
+              class="mx-auto mt-3 max-w-sm space-y-1 text-left text-xs text-neutral-500"
+            ></ul>
+          </div>
+          <input id="file" type="file" accept="video/*" multiple class="hidden" />
+
           <button
-            id="swap"
-            title="Поменять Ш и В местами"
-            class="mb-[1px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
+            id="go"
+            disabled
+            class="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
           >
-            ⇄
+            Обработать
           </button>
-          <label class="text-sm">
-            <span class="mb-1 block text-neutral-400">Высота</span>
+
+          <div id="panel" class="mt-6 hidden">
+            <div class="mb-2 flex justify-between text-xs text-neutral-400">
+              <span id="status">—</span><span id="pct"></span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+              <div
+                id="bar"
+                class="h-full w-0 bg-indigo-500 transition-all duration-300"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="materials-panel" class="hidden">
+          <label class="mb-5 block text-sm">
+            <span class="mb-1 block text-neutral-400">GitHub-репозиторий</span>
             <input
-              id="h"
-              type="number"
-              min="2"
-              value="1920"
-              class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500"
+              id="repo"
+              type="text"
+              placeholder="https://github.com/owner/repo"
+              class="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500"
             />
           </label>
-        </div>
 
-        <div id="gravity" class="mb-5 hidden">
-          <span class="mb-2 block text-sm text-neutral-400"
-            >Прижать при обрезке</span
+          <button
+            id="scan"
+            class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
           >
-          <div class="grid w-[136px] grid-cols-3 gap-1">
-            <span></span><button class="g" data-g="top">↑</button><span></span>
-            <button class="g" data-g="left">←</button>
-            <button class="g" data-g="center">•</button>
-            <button class="g" data-g="right">→</button>
-            <span></span><button class="g" data-g="bottom">↓</button
-            ><span></span>
-          </div>
-        </div>
+            Сканировать
+          </button>
 
-        <div
-          id="drop"
-          class="cursor-pointer rounded-xl border-2 border-dashed border-neutral-700 bg-neutral-900/40 px-6 py-12 text-center transition"
-        >
-          <p class="text-sm text-neutral-400">
-            Перетащите видео сюда или нажмите, чтобы выбрать
-          </p>
-          <ul
-            id="list"
-            class="mx-auto mt-3 max-w-sm space-y-1 text-left text-xs text-neutral-500"
-          ></ul>
-        </div>
-        <input id="file" type="file" accept="video/*" multiple class="hidden" />
-
-        <button
-          id="go"
-          disabled
-          class="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
-        >
-          Обработать
-        </button>
-
-        <div id="panel" class="mt-6 hidden">
-          <div class="mb-2 flex justify-between text-xs text-neutral-400">
-            <span id="status">—</span><span id="pct"></span>
+          <div id="m-panel" class="mt-6 hidden">
+            <div class="mb-2 flex justify-between text-xs text-neutral-400">
+              <span id="m-status">—</span><span id="m-count"></span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+              <div
+                id="m-bar"
+                class="h-full w-0 bg-indigo-500 transition-all duration-300"
+              ></div>
+            </div>
           </div>
-          <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
-            <div
-              id="bar"
-              class="h-full w-0 bg-indigo-500 transition-all duration-300"
-            ></div>
-          </div>
+
+          <div id="tiles" class="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-4"></div>
+
+          <a
+            id="m-download"
+            href="#"
+            class="mt-6 hidden block w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-500"
+          >
+            Скачать links.txt
+          </a>
         </div>
       </main>
     </div>
 
     <script src="app.js"></script>
+    <script src="materials.js"></script>
   </body>
 </html>
