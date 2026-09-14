@@ -12,7 +12,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
-COPY docker-entrypoint.sh .
 
 EXPOSE 8000
-CMD ["./docker-entrypoint.sh"]
+CMD ["sh", "-c", "lightpanda serve --host 127.0.0.1 --port 9222 --log-level warn & exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
