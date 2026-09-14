@@ -21,7 +21,7 @@ export function ReframeTab() {
   const [gravity, setGravity] = useState("center");
   const [w, setW] = useState(1080);
   const [ht, setHt] = useState(1920);
-  const [duration, setDuration] = useState(2);
+  const [duration, setDuration] = useState(3);
   const [files, setFiles] = useState([]);
   const [status, setStatus] = useState({ text: "—", pct: 0 });
   const [busy, setBusy] = useState(false);

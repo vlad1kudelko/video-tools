@@ -17,7 +17,7 @@ async def create_job(
     height: int = Form(...),
     mode: str = Form("blur"),
     gravity: str = Form("center"),
-    duration: float = Form(2.0),
+    duration: float = Form(3.0),
     files: list[UploadFile] = File(...),
 ):
     if width < 2 or height < 2 or duration <= 0 or not files:
