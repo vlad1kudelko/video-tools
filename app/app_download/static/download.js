@@ -71,7 +71,7 @@ export function DownloadTab() {
         </div>
       </div>
 
-      <div class="text-xs text-neutral-500">Пропущено YouTube-ссылок: ${state.skipped_youtube.length}</div>
+      <div class="text-sm text-neutral-400">Пропущено YouTube-ссылок: ${state.skipped_youtube.length}</div>
     </div>
 
     <button disabled=${state.status !== "done"} onClick=${() => { window.location.href = `/api/downloads/${jobId}/file`; }}

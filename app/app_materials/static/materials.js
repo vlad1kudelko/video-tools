@@ -178,7 +178,7 @@ export function MaterialsTab() {
       </div>
     </div>
 
-    <div class="mt-4 text-sm text-neutral-400">Выбрано: <span class="font-semibold text-neutral-200">${selectedOrder.length}</span> из ${items.length}</div>
+    <div class="mt-4 text-sm text-neutral-400">Выбрано: ${selectedOrder.length} из ${items.length}</div>
 
     ${["readme", "site"].map(src => groups[src].length ? html`
       <section key=${src} class="mt-6">
