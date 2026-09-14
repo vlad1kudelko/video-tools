@@ -8,10 +8,10 @@ const { useState } = preactHooks;
 const html = htm.bind(h);
 
 const TABS = [
-  { id: "reframe", label: "Кадрирование", Component: ReframeTab },
-  { id: "materials", label: "Подготовка материала", Component: MaterialsTab },
-  { id: "download", label: "Скачивание медиа", Component: DownloadTab },
-  { id: "concat", label: "Склейка видео", Component: ConcatTab },
+  { id: "materials", label: "1. Подготовка материала", Component: MaterialsTab },
+  { id: "download", label: "2. Скачивание медиа", Component: DownloadTab },
+  { id: "reframe", label: "3. Кадрирование", Component: ReframeTab },
+  { id: "concat", label: "4. Склейка видео", Component: ConcatTab },
 ];
 
 const navBtnClass = on =>
@@ -19,7 +19,7 @@ const navBtnClass = on =>
   (on ? "bg-indigo-600/20 text-indigo-300 ring-1 ring-inset ring-indigo-500/40" : "text-neutral-400 hover:bg-neutral-900");
 
 function App() {
-  const [tab, setTab] = useState("reframe");
+  const [tab, setTab] = useState("materials");
   return html`
     <div class="flex min-h-screen flex-col md:flex-row">
       <aside class="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
