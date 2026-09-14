@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -8,41 +9,27 @@ from playwright.async_api import async_playwright
 from .jobs import RecordJob
 
 TICK_SECONDS = 0.05
+FPS = round(1 / TICK_SECONDS)
 
 
-async def _probe_duration(path: Path) -> float:
+async def _frames_to_mp4(frames_dir: Path, total: int, dst: Path, job: RecordJob) -> None:
     proc = await asyncio.create_subprocess_exec(
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=nk=1:nw=1", str(path),
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
-    )
-    out, _ = await proc.communicate()
-    try:
-        return float(out.decode().strip())
-    except ValueError:
-        return 0.0
-
-
-async def _to_mp4(src: Path, dst: Path, job: RecordJob) -> None:
-    dur = await _probe_duration(src)
-    proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-y", "-i", str(src),
+        "ffmpeg", "-y", "-framerate", str(FPS), "-i", str(frames_dir / "f%05d.png"),
         "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-movflags", "+faststart",
+        "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats", str(dst),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
     )
     async for raw in proc.stdout:
         line = raw.decode().strip()
-        if line.startswith("out_time=") and dur:
+        if line.startswith("frame=") and total:
             try:
-                hh, mm, ss = line.split("=", 1)[1].split(":")
-                job.progress = min((int(hh) * 3600 + int(mm) * 60 + float(ss)) / dur, 1.0)
+                job.progress = min(int(line.split("=", 1)[1]) / total, 1.0)
             except ValueError:
                 pass
     await proc.wait()
     if proc.returncode != 0:
-        raise RuntimeError("ffmpeg convert failed")
+        raise RuntimeError("ffmpeg assemble failed")
     job.progress = 1.0
 
 
@@ -50,26 +37,30 @@ async def run_record(
     job: RecordJob, url: str, width: int, height: int, workdir: Path,
     scroll_speed: float, max_seconds: float,
 ) -> None:
-    """Load the page in a real (rendering) Chromium, record the context video
-    while scrolling smoothly to the bottom, then re-encode the result to mp4."""
+    """Load the page in a real (rendering) Chromium, take a viewport screenshot
+    every tick while scrolling smoothly to the bottom, then assemble the frames
+    into an mp4 at a fixed frame rate — deterministic pacing, unlike Playwright's
+    own context video recorder, whose screencast frame rate isn't guaranteed and
+    can stutter under load."""
     workdir.mkdir(parents=True, exist_ok=True)
+    frames_dir = workdir / "frames"
+    frames_dir.mkdir(parents=True, exist_ok=True)
     try:
         job.message = "Открытие страницы"
         async with async_playwright() as pw:
             browser = await pw.chromium.launch()
             try:
-                context = await browser.new_context(
-                    viewport={"width": width, "height": height},
-                    record_video_dir=str(workdir),
-                    record_video_size={"width": width, "height": height},
-                )
+                context = await browser.new_context(viewport={"width": width, "height": height})
                 page = await context.new_page()
                 await page.goto(url, wait_until="load", timeout=30000)
 
                 job.message = "Запись и прокрутка"
                 step = scroll_speed * TICK_SECONDS
                 started = time.monotonic()
+                frame_i = 0
                 while True:
+                    await page.screenshot(path=str(frames_dir / f"f{frame_i:05d}.png"))
+                    frame_i += 1
                     state = await page.evaluate(
                         "() => ({y: window.scrollY, h: document.body.scrollHeight, vh: window.innerHeight})"
                     )
@@ -79,18 +70,15 @@ async def run_record(
                         break
                     await page.evaluate("(step) => window.scrollBy(0, step)", step)
                     await asyncio.sleep(TICK_SECONDS)
-
-                video = page.video
-                await context.close()
-                webm_path = Path(await video.path())
             finally:
                 await browser.close()
 
-        job.message = "Конвертация видео"
+        job.message = "Сборка видео"
         job.progress = 0.0
         host = urlparse(url).hostname or "record"
         out_path = workdir / f"{host}[record].mp4"
-        await _to_mp4(webm_path, out_path, job)
+        await _frames_to_mp4(frames_dir, frame_i, out_path, job)
+        shutil.rmtree(frames_dir, ignore_errors=True)
 
         job.result = out_path
         job.message = "Готово"

@@ -8,7 +8,7 @@ export function RecordTab() {
   const [url, setUrl] = useState("");
   const [w, setW] = useState(1080);
   const [h_, setH] = useState(1920);
-  const [scrollSpeed, setScrollSpeed] = useState(360);
+  const [scrollSpeed, setScrollSpeed] = useState(250);
   const [maxSeconds, setMaxSeconds] = useState(60);
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);

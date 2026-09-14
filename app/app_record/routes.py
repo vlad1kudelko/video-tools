@@ -16,7 +16,7 @@ async def start(
     url: str = Form(...),
     width: int = Form(1080),
     height: int = Form(1920),
-    scroll_speed: float = Form(360.0),
+    scroll_speed: float = Form(250.0),
     max_seconds: float = Form(60.0),
 ):
     if not url.strip() or width < 2 or height < 2 or scroll_speed <= 0 or max_seconds <= 0:
