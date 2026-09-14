@@ -14,7 +14,7 @@ const gravityClass = on =>
   "flex h-11 items-center justify-center rounded-lg border text-base transition " +
   (on ? "border-indigo-500 bg-indigo-600/20 text-indigo-300" : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500");
 
-export function VideoTab() {
+export function ReframeTab() {
   const [mode, setMode] = useState("blur");
   const [gravity, setGravity] = useState("center");
   const [w, setW] = useState(1080);

@@ -1,4 +1,4 @@
-import { VideoTab } from "/video-static/video.js";
+import { ReframeTab } from "/reframe-static/reframe.js";
 import { MaterialsTab } from "/materials-static/materials.js";
 
 const { h, render } = preact;
@@ -6,7 +6,7 @@ const { useState } = preactHooks;
 const html = htm.bind(h);
 
 const TABS = [
-  { id: "video", label: "Видео", Component: VideoTab },
+  { id: "reframe", label: "Кадрирование", Component: ReframeTab },
   { id: "materials", label: "Подготовка материала", Component: MaterialsTab },
 ];
 
@@ -15,7 +15,7 @@ const navBtnClass = on =>
   (on ? "bg-indigo-600/20 text-indigo-300 ring-1 ring-inset ring-indigo-500/40" : "text-neutral-400 hover:bg-neutral-900");
 
 function App() {
-  const [tab, setTab] = useState("video");
+  const [tab, setTab] = useState("reframe");
   const active = TABS.find(t => t.id === tab);
   return html`
     <div class="flex min-h-screen flex-col md:flex-row">
