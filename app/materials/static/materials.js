@@ -15,6 +15,16 @@ function groupBySource(items) {
   return groups;
 }
 
+function sortGroup(items, sizes) {
+  return [...items].sort((a, b) => {
+    const aAnimated = a.kind !== "image" ? 0 : 1;
+    const bAnimated = b.kind !== "image" ? 0 : 1;
+    if (aAnimated !== bAnimated) return aAnimated - bAnimated;
+    if (aAnimated === 1) return (sizes.get(b.url) ?? -1) - (sizes.get(a.url) ?? -1); // biggest image first
+    return 0; // gifs/video keep their found order
+  });
+}
+
 function buildLinksText(selectedOrder) {
   return selectedOrder.join("\n") + "\n";
 }
@@ -36,7 +46,7 @@ function SelectMark({ selected, order, onToggle, posClass }) {
     </button>`;
 }
 
-function Tile({ item, order, onToggle }) {
+function Tile({ item, order, onToggle, onSize }) {
   const [broken, setBroken] = useState(false);
   const isPlaceholder = item.kind === "video" || broken;
   const selected = order != null;
@@ -46,7 +56,8 @@ function Tile({ item, order, onToggle }) {
       <a href=${item.url} target="_blank" rel="noopener" title=${item.url} class="block h-full w-full bg-neutral-900">
         ${isPlaceholder
           ? html`<div class="flex h-full w-full items-center justify-center p-2 text-center text-xs text-neutral-400">${item.kind === "video" ? "▶ видео" : "—"}</div>`
-          : html`<img src=${item.url} loading="lazy" class="h-full w-full object-cover" onError=${() => setBroken(true)} />`}
+          : html`<img src=${item.url} loading="lazy" class="h-full w-full object-cover" onError=${() => setBroken(true)}
+              onLoad=${e => onSize(item.url, e.target.naturalWidth * e.target.naturalHeight)} />`}
       </a>
       <${SelectMark} selected=${selected} order=${order} onToggle=${() => onToggle(item.url)} posClass="absolute left-1 top-1" />
     </div>`;
@@ -78,11 +89,15 @@ export function MaterialsTab() {
   const [repoUrl, setRepoUrl] = useState("");
   const [items, setItems] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState([]); // urls, in the order they were clicked
+  const [sizes, setSizes] = useState(new Map()); // url -> naturalWidth * naturalHeight, filled in as thumbnails load
   const [meta, setMeta] = useState(null); // { status, message, filename }
   const [busy, setBusy] = useState(false);
 
   const toggle = url => setSelectedOrder(prev =>
     prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]);
+
+  const reportSize = (url, area) => setSizes(prev =>
+    prev.get(url) === area ? prev : new Map(prev).set(url, area));
 
   const selectAll = (groupItems, value) => setSelectedOrder(prev => {
     const groupUrls = groupItems.map(it => it.url);
@@ -173,7 +188,7 @@ export function MaterialsTab() {
       <section key=${src} class="mt-6">
         <${GroupHeader} label=${SOURCE_LABELS[src]} items=${groups[src]} selectedOrder=${selectedOrder} onSelectAll=${selectAll} />
         <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          ${groups[src].map(it => html`<${Tile} key=${it.url} item=${it} order=${orderOf(it.url)} onToggle=${toggle} />`)}
+          ${sortGroup(groups[src], sizes).map(it => html`<${Tile} key=${it.url} item=${it} order=${orderOf(it.url)} onToggle=${toggle} onSize=${reportSize} />`)}
         </div>
       </section>
     ` : null)}
