@@ -1,5 +1,6 @@
 import { DropZone } from "/dropzone.js";
 import { TransitionPicker } from "/transition-picker.js";
+import { uploadWithProgress } from "/upload.js";
 
 const { h } = preact;
 const { useState } = preactHooks;
@@ -13,6 +14,7 @@ export function ConcatTab() {
   const [duration, setDuration] = useState(0.5);
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);
+  const [uploadPct, setUploadPct] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const start = async () => {
@@ -20,13 +22,15 @@ export function ConcatTab() {
     if (!file) return;
     setBusy(true);
     setJobId(null);
+    setUploadPct(0);
     setState({ ...IDLE_STATE, status: "processing", message: "Загрузка архива…" });
 
     const fd = new FormData();
     fd.append("file", file);
     fd.append("transition", transition);
     fd.append("transition_duration", duration);
-    const r = await fetch("/api/concat/start", { method: "POST", body: fd });
+    const r = await uploadWithProgress("/api/concat/start", fd,
+      frac => setUploadPct(Math.round(frac * 100)));
     if (!r.ok) {
       setState({ ...IDLE_STATE, status: "error", message: "Ошибка запроса" });
       setBusy(false);
@@ -42,7 +46,7 @@ export function ConcatTab() {
     };
   };
 
-  const pct = state.status === "done" ? 100 : Math.round(state.progress * 100);
+  const pct = !jobId ? uploadPct : (state.status === "done" ? 100 : Math.round(state.progress * 100));
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Склейка видео</h1>

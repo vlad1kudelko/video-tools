@@ -22,9 +22,9 @@ async def assemble_clips(
 ) -> None:
     """Normalize every clip to the first clip's resolution/fps, chain them with
     an `xfade` transition (or a plain concat if transition == "none"), and mux
-    in audio — a real track where present, silence where not, trimmed to match
-    the (transition-shortened) video length. Shared by "Склейка" and
-    "Комбинатор", which only differ in how they pick the input clip list."""
+    in audio — a real track where present, silence where not. Shared by
+    "Склейка" and "Комбинатор", which only differ in how they pick the input
+    clip list."""
     infos = []
     for c in clips:
         info = await probe(c.path)
@@ -57,11 +57,11 @@ async def assemble_clips(
 
     if n == 1:
         video_label = "v0"
-        total_duration = durations[0]
+        video_duration = durations[0]
     elif transition == "none":
         video_parts.append("".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[vout]")
         video_label = "vout"
-        total_duration = sum(durations)
+        video_duration = sum(durations)
     else:
         cumulative = durations[0]
         prev_label = "v0"
@@ -72,7 +72,20 @@ async def assemble_clips(
             cumulative = cumulative + durations[i] - td
             prev_label = out_label
         video_label = prev_label
-        total_duration = cumulative
+        video_duration = cumulative
+
+    # Audio is a plain concat of every clip's *full* track (no crossfade), so
+    # its natural length is the sum of all clip durations — longer than the
+    # xfade-shortened video by the total transition overlap. Rather than
+    # trimming the audio down to the video's length (which would chop the
+    # last clip's tail, cutting off speech), pad the video out to match the
+    # audio instead: freeze its last frame for the difference. Nothing in
+    # either stream gets lost.
+    total_duration = sum(durations)
+    pad = total_duration - video_duration
+    if pad > 0.01:
+        video_parts.append(f"[{video_label}]tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
+        video_label = "vpad"
 
     audio_parts = []
     for i, info in enumerate(infos):
@@ -80,11 +93,7 @@ async def assemble_clips(
             audio_parts.append(f"[{i}:a]asetpts=PTS-STARTPTS[a{i}]")
         else:
             audio_parts.append(f"anullsrc=channel_layout=stereo:sample_rate=44100:duration={durations[i]:.3f}[a{i}]")
-    audio_parts.append("".join(f"[a{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[araw]")
-    # Transitions overlap clips, shortening the video below the sum of clip
-    # durations — trim the (plainly concatenated) audio to match, otherwise
-    # the container duration follows the longer, untrimmed audio track.
-    audio_parts.append(f"[araw]atrim=duration={total_duration:.3f},asetpts=PTS-STARTPTS[aout]")
+    audio_parts.append("".join(f"[a{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[aout]")
 
     filter_complex = ";".join(video_parts + audio_parts)
 

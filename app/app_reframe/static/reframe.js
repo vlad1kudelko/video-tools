@@ -1,4 +1,5 @@
 import { DropZone } from "/dropzone.js";
+import { uploadWithProgress } from "/upload.js";
 
 const { h } = preact;
 const { useState } = preactHooks;
@@ -32,7 +33,7 @@ export function ReframeTab() {
   const submit = async () => {
     setBusy(true);
     setResultId(null);
-    setStatus({ text: "Загрузка файлов…", pct: null });
+    setStatus({ text: "Загрузка файлов…", pct: 0 });
     const fd = new FormData();
     fd.append("width", w);
     fd.append("height", ht);
@@ -40,7 +41,8 @@ export function ReframeTab() {
     fd.append("gravity", gravity);
     fd.append("duration", duration);
     files.forEach(f => fd.append("files", f));
-    const r = await fetch("/api/jobs", { method: "POST", body: fd });
+    const r = await uploadWithProgress("/api/jobs", fd,
+      frac => setStatus({ text: "Загрузка файлов…", pct: Math.round(frac * 100) }));
     if (!r.ok) {
       setStatus({ text: "Ошибка запроса", pct: 0 });
       setBusy(false);

@@ -1,5 +1,6 @@
 import { DropZone } from "/dropzone.js";
 import { TransitionPicker } from "/transition-picker.js";
+import { uploadWithProgress } from "/upload.js";
 
 const { h } = preact;
 const { useState } = preactHooks;
@@ -26,6 +27,7 @@ export function CombinatorTab() {
   const [duration, setDuration] = useState(0.5);
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);
+  const [uploadPct, setUploadPct] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const setBlockCount = n => setBlocks(prev => {
@@ -45,6 +47,7 @@ export function CombinatorTab() {
     if (!canGenerate) return;
     setBusy(true);
     setJobId(null);
+    setUploadPct(0);
     setState({ ...IDLE_STATE, status: "processing", message: "Загрузка…" });
 
     const fd = new FormData();
@@ -55,7 +58,8 @@ export function CombinatorTab() {
     fd.append("transition", transition);
     fd.append("transition_duration", duration);
 
-    const r = await fetch("/api/combinator/generate", { method: "POST", body: fd });
+    const r = await uploadWithProgress("/api/combinator/generate", fd,
+      frac => setUploadPct(Math.round(frac * 100)));
     if (!r.ok) {
       setState({ ...IDLE_STATE, status: "error", message: "Ошибка запроса" });
       setBusy(false);
@@ -71,7 +75,7 @@ export function CombinatorTab() {
     };
   };
 
-  const pct = state.status === "done" ? 100 : Math.round(state.progress * 100);
+  const pct = !jobId ? uploadPct : (state.status === "done" ? 100 : Math.round(state.progress * 100));
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Комбинатор</h1>
