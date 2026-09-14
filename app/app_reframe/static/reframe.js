@@ -1,5 +1,7 @@
+import { DropZone } from "/dropzone.js";
+
 const { h } = preact;
-const { useRef, useState } = preactHooks;
+const { useState } = preactHooks;
 const html = htm.bind(h);
 
 const TITLES = { blur: "Из маленького — в большое", crop: "Из большого — в маленькое" };
@@ -20,15 +22,15 @@ export function ReframeTab() {
   const [w, setW] = useState(1080);
   const [ht, setHt] = useState(1920);
   const [files, setFiles] = useState([]);
-  const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState(null); // { text, pct }
   const [busy, setBusy] = useState(false);
-  const fileInput = useRef(null);
+  const [resultId, setResultId] = useState(null);
 
   const swap = () => { setW(ht); setHt(w); };
 
   const submit = async () => {
     setBusy(true);
+    setResultId(null);
     setStatus({ text: "Загрузка файлов…", pct: null });
     const fd = new FormData();
     fd.append("width", w);
@@ -52,10 +54,8 @@ export function ReframeTab() {
           pct: Math.round(((j.done + j.progress) / j.total) * 100),
         });
       } else if (j.status === "done") {
-        setStatus({ text: "Готово — загрузка началась", pct: 100 });
-        const a = document.createElement("a");
-        a.href = `/api/jobs/${id}/download`;
-        document.body.appendChild(a); a.click(); a.remove();
+        setStatus({ text: "Готово", pct: 100 });
+        setResultId(id);
         setBusy(false);
       } else {
         setStatus({ text: "Ошибка: " + (j.message || "неизвестно"), pct: 0 });
@@ -98,22 +98,8 @@ export function ReframeTab() {
       </div>
     `}
 
-    <div
-      onDragEnter=${e => { e.preventDefault(); setDragging(true); }}
-      onDragOver=${e => { e.preventDefault(); setDragging(true); }}
-      onDragLeave=${e => { e.preventDefault(); setDragging(false); }}
-      onDrop=${e => { e.preventDefault(); setDragging(false); setFiles([...e.dataTransfer.files]); }}
-      onClick=${() => fileInput.current.click()}
-      class=${"cursor-pointer rounded-xl border-2 border-dashed px-6 py-12 text-center transition " +
-        (dragging ? "border-indigo-500 bg-neutral-900" : "border-neutral-700 bg-neutral-900/40")}
-    >
-      <p class="text-sm text-neutral-400">Перетащите видео сюда или нажмите, чтобы выбрать</p>
-      <ul class="mx-auto mt-3 max-w-sm space-y-1 text-left text-xs text-neutral-500">
-        ${files.map(f => html`<li key=${f.name} class="truncate">• ${f.name}</li>`)}
-      </ul>
-    </div>
-    <input ref=${fileInput} type="file" accept="video/*" multiple class="hidden"
-      onChange=${e => setFiles([...e.target.files])} />
+    <${DropZone} multiple=${true} accept="video/*" files=${files} onFiles=${setFiles}
+      hint="Перетащите видео сюда или нажмите, чтобы выбрать" />
 
     <button disabled=${!files.length || busy} onClick=${submit}
       class="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
@@ -129,6 +115,13 @@ export function ReframeTab() {
           <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: (status.pct ?? 0) + "%" }}></div>
         </div>
       </div>
+    `}
+
+    ${resultId && html`
+      <a href=${`/api/jobs/${resultId}/download`}
+        class="mt-6 block w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-500">
+        Скачать результат
+      </a>
     `}
   `;
 }
