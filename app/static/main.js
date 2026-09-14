@@ -1,6 +1,7 @@
 import { ReframeTab } from "/reframe-static/reframe.js";
 import { MaterialsTab } from "/materials-static/materials.js";
 import { DownloadTab } from "/download-static/download.js";
+import { RecordTab } from "/record-static/record.js";
 import { ConcatTab } from "/concat-static/concat.js";
 
 const { h, render } = preact;
@@ -10,8 +11,9 @@ const html = htm.bind(h);
 const TABS = [
   { id: "materials", label: "1. Подготовка материала", Component: MaterialsTab },
   { id: "download", label: "2. Скачивание медиа", Component: DownloadTab },
-  { id: "reframe", label: "3. Кадрирование", Component: ReframeTab },
-  { id: "concat", label: "4. Склейка видео", Component: ConcatTab },
+  { id: "record", label: "3. Запись экрана", Component: RecordTab },
+  { id: "reframe", label: "4. Кадрирование", Component: ReframeTab },
+  { id: "concat", label: "5. Склейка видео", Component: ConcatTab },
 ];
 
 const navBtnClass = on =>
