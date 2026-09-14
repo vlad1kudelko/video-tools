@@ -20,11 +20,23 @@ async def assemble_clips(
     clips: list[ClipInput], transition: str, transition_duration: float,
     out_path: Path, job: _ProgressJob,
 ) -> None:
-    """Normalize every clip to the first clip's resolution/fps, chain them with
-    an `xfade` transition (or a plain concat if transition == "none"), and mux
-    in audio — a real track where present, silence where not. Shared by
-    "Склейка" and "Комбинатор", which only differ in how they pick the input
-    clip list."""
+    """Normalize every clip to the first clip's resolution/fps and chain them
+    together, then mux in audio — a real track where present, silence where
+    not. Shared by "Склейка" and "Комбинатор", which only differ in how they
+    pick the input clip list.
+
+    The transition (when not "none") is not an `xfade` overlap — an overlap
+    necessarily shortens the video by the transition length while the audio
+    (a plain concat) keeps its full length, so the two drift out of sync
+    across a multi-clip chain and only line back up via an end-of-video patch.
+    Instead, each clip's own trailing `td` seconds are replaced (not
+    shortened away) by a "reverse echo": that tail played backwards
+    cross-dissolves into the next clip's head also played backwards, landing
+    on the next clip's first frame exactly at the cut, which then continues
+    forward normally. Every clip still contributes exactly its own duration
+    to the timeline, so the total video length is exactly sum(durations) —
+    identical, by construction, to the plain audio concat's length. No
+    trimming or padding needed to line them up."""
     infos = []
     for c in clips:
         info = await probe(c.path)
@@ -32,6 +44,7 @@ async def assemble_clips(
             info["duration"] = c.forced_duration
         infos.append(info)
     durations = [info["duration"] or 0.1 for info in infos]
+    total_duration = sum(durations)
 
     w = infos[0]["width"] or 1280
     h = infos[0]["height"] or 720
@@ -57,35 +70,47 @@ async def assemble_clips(
 
     if n == 1:
         video_label = "v0"
-        video_duration = durations[0]
     elif transition == "none":
         video_parts.append("".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[vout]")
         video_label = "vout"
-        video_duration = sum(durations)
     else:
-        cumulative = durations[0]
-        prev_label = "v0"
-        for i in range(1, n):
-            offset = max(cumulative - td, 0)
-            out_label = f"vx{i}" if i < n - 1 else "vout"
-            video_parts.append(f"[{prev_label}][v{i}]xfade=transition={transition}:duration={td}:offset={offset:.3f}[{out_label}]")
-            cumulative = cumulative + durations[i] - td
-            prev_label = out_label
-        video_label = prev_label
-        video_duration = cumulative
+        # Each normalized clip stream [vi] feeds up to three downstream chains
+        # (its own forward play, its reversed tail, and — as the *next*
+        # clip's head — a reversed head for the previous junction), so it
+        # needs an explicit `split` fan-out before any of those can read it.
+        roles: dict[tuple[int, str], int] = {}
+        for i in range(n):
+            idx = 0
+            roles[(i, "fwd")] = idx; idx += 1
+            if i < n - 1:
+                roles[(i, "tail")] = idx; idx += 1
+            if i > 0:
+                roles[(i, "head")] = idx; idx += 1
+            outs = "".join(f"[vsp{i}_{k}]" for k in range(idx))
+            video_parts.append(f"[v{i}]split={idx}{outs}")
 
-    # Audio is a plain concat of every clip's *full* track (no crossfade), so
-    # its natural length is the sum of all clip durations — longer than the
-    # xfade-shortened video by the total transition overlap. Rather than
-    # trimming the audio down to the video's length (which would chop the
-    # last clip's tail, cutting off speech), pad the video out to match the
-    # audio instead: freeze its last frame for the difference. Nothing in
-    # either stream gets lost.
-    total_duration = sum(durations)
-    pad = total_duration - video_duration
-    if pad > 0.01:
-        video_parts.append(f"[{video_label}]tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
-        video_label = "vpad"
+        def copy(i: int, role: str) -> str:
+            return f"vsp{i}_{roles[(i, role)]}"
+
+        segments = []
+        for i in range(n):
+            is_last = i == n - 1
+            if is_last:
+                segments.append(copy(i, "fwd"))
+            else:
+                fwd = f"vf{i}"
+                video_parts.append(f"[{copy(i, 'fwd')}]trim=start=0:end={durations[i] - td:.3f},setpts=PTS-STARTPTS[{fwd}]")
+                segments.append(fwd)
+
+                # `reverse` drops the constant-frame-rate flag, which `xfade`
+                # below insists on — reassert it with an explicit `fps=`.
+                revtail, revhead, junction = f"vrt{i}", f"vrh{i}", f"vj{i}"
+                video_parts.append(f"[{copy(i, 'tail')}]trim=start={durations[i] - td:.3f}:end={durations[i]:.3f},setpts=PTS-STARTPTS,reverse,fps={fps}[{revtail}]")
+                video_parts.append(f"[{copy(i + 1, 'head')}]trim=start=0:end={td:.3f},setpts=PTS-STARTPTS,reverse,fps={fps}[{revhead}]")
+                video_parts.append(f"[{revtail}][{revhead}]xfade=transition={transition}:duration={td:.3f}:offset=0[{junction}]")
+                segments.append(junction)
+        video_label = "vout"
+        video_parts.append("".join(f"[{s}]" for s in segments) + f"concat=n={len(segments)}:v=1:a=0[{video_label}]")
 
     audio_parts = []
     for i, info in enumerate(infos):
