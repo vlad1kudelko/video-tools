@@ -3,8 +3,7 @@ import httpx
 from .github import RepoNotFound, fetch_readme_text, fetch_repo_info, parse_repo
 from .jobs import MaterialsJob
 from .links import extract_media
-
-_SITE_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; video-tools-materials-bot/1.0)"}
+from .site import fetch_rendered_html
 
 
 def _add(job: MaterialsJob, new_items: list) -> None:
@@ -42,10 +41,9 @@ async def run_scan(job: MaterialsJob, repo_url: str) -> None:
             if homepage:
                 job.message = "Загрузка сайта"
                 try:
-                    r = await client.get(homepage, headers=_SITE_HEADERS, follow_redirects=True)
-                    r.raise_for_status()
-                    _add(job, extract_media(r.text, str(r.url), "site"))
-                except httpx.HTTPError:
+                    final_url, html = await fetch_rendered_html(homepage)
+                    _add(job, extract_media(html, final_url, "site"))
+                except Exception:  # noqa: BLE001
                     warning = "Сайт недоступен — использованы только данные README"
 
         job.message = warning or "Готово"
