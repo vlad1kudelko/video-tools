@@ -56,9 +56,9 @@ async def process_job(job: Job, payload: list[tuple[str, bytes]], vf: str, suffi
 
 
 async def process_archive_job(job: Job, zip_bytes: bytes, original_name: str, vf: str, duration: float) -> None:
-    """A zip of media (optionally mixed with other files, e.g. a links.txt from
-    the materials/download tabs): reframe every recognized media file in place,
-    copy everything else through untouched, and repack under the same names."""
+    """A zip of media, possibly mixed with unrelated files: reframe every
+    recognized media file in place, copy everything else through untouched,
+    and repack under the same names."""
     workdir = TMP / job.id
     extract_dir = workdir / "in"
     out_dir = workdir / "out"

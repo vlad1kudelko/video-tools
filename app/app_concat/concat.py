@@ -13,10 +13,6 @@ def _is_video(name: str) -> bool:
     return Path(name).suffix.lower() in VIDEO_EXT
 
 
-def _count_links(text: str) -> int:
-    return sum(1 for line in text.splitlines() if line.strip())
-
-
 async def _run_ffmpeg_concat(
     clips: list[Path], infos: list[dict], durations: list[float],
     w: int, h: int, fps: str, transition: str, td: float,
@@ -104,11 +100,6 @@ async def run_concat(
             zin.extractall(extract_dir)
 
         clip_names = sorted(n for n in names if _is_video(n))
-        txt_name = next((n for n in names if n.lower().endswith(".txt")), None)
-        if txt_name:
-            link_count = _count_links((extract_dir / txt_name).read_text(encoding="utf-8", errors="ignore"))
-            if link_count != len(clip_names):
-                job.warning = f"Ссылок в файле: {link_count}, видео для склейки: {len(clip_names)}"
 
         if not clip_names:
             job.status, job.message = "error", "В архиве не найдено видео для склейки"
@@ -134,7 +125,7 @@ async def run_concat(
         await _run_ffmpeg_concat(clips, infos, durations, w, h, fps, transition, td, out_path, job)
 
         job.result = out_path
-        job.message = job.warning or "Готово"
+        job.message = "Готово"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)

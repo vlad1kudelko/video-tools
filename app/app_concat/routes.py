@@ -35,7 +35,6 @@ async def ws(job_id: str, sock: WebSocket):
         await sock.send_json({
             "status": job.status,
             "message": job.message,
-            "warning": job.warning,
             "progress": round(job.progress, 3),
         })
         if job.status != "processing":

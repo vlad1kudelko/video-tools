@@ -11,7 +11,6 @@ class ConcatJob:
     id: str
     status: str = "processing"  # processing | done | error
     message: str = ""
-    warning: str = ""
     progress: float = 0.0
     result: Path | None = None
 

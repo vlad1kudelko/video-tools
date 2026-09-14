@@ -61,7 +61,7 @@ function TransitionTile({ item, selected, onSelect }) {
     </button>`;
 }
 
-const IDLE_STATE = { status: "idle", message: "—", warning: "", progress: 0 };
+const IDLE_STATE = { status: "idle", message: "—", progress: 0 };
 
 export function ConcatTab() {
   const [files, setFiles] = useState([]);
@@ -133,12 +133,6 @@ export function ConcatTab() {
         <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: pct + "%" }}></div>
       </div>
     </div>
-
-    ${state.warning && html`
-      <div class="mt-4 rounded-lg border border-amber-700/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
-        ⚠ ${state.warning}
-      </div>
-    `}
 
     <button disabled=${state.status !== "done"} onClick=${() => { window.location.href = `/api/concat/${jobId}/file`; }}
       class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">

@@ -6,8 +6,8 @@ VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".flv", ".wmv"}
 
 
 def classify_media(name: str) -> str | None:
-    """image | gif | video | None (not a recognized media type — left untouched
-    when found inside an archive, e.g. a links.txt bundled alongside media)."""
+    """image | gif | video | None (not a recognized media type — left
+    untouched when found inside an archive alongside real media files)."""
     ext = Path(name).suffix.lower()
     if ext in GIF_EXT:
         return "gif"
