@@ -1,5 +1,5 @@
 const { h } = preact;
-const { useState } = preactHooks;
+const { useState, useEffect } = preactHooks;
 const html = htm.bind(h);
 
 const PHASE_PCT = {
@@ -46,20 +46,75 @@ function SelectMark({ selected, order, onToggle, posClass }) {
     </button>`;
 }
 
-function Tile({ item, order, onToggle, onSize }) {
+function youtubeId(url) {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function youtubeThumb(url) {
+  const id = youtubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+function fileExt(url) {
+  let name;
+  try {
+    name = new URL(url).pathname.split("/").pop() || "";
+  } catch {
+    return null;
+  }
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot + 1) : "";
+  return ext && ext.length <= 5 ? ext.toUpperCase() : null;
+}
+
+function Tile({ item, order, onToggle, onSize, onPreview }) {
   const [broken, setBroken] = useState(false);
-  const isPlaceholder = item.kind === "video" || broken;
   const selected = order != null;
+  const ytThumb = item.kind === "video" ? youtubeThumb(item.url) : null;
+  const ext = fileExt(item.url);
+
+  const media = broken
+    ? html`<div class="flex h-full w-full items-center justify-center p-2 text-center text-xs text-neutral-400">—</div>`
+    : ytThumb
+    ? html`<img src=${ytThumb} loading="lazy" class="h-full w-full object-cover" onError=${() => setBroken(true)} />`
+    : item.kind === "video"
+    ? html`<video src=${item.url} muted playsinline preload="metadata" class="h-full w-full object-cover" onError=${() => setBroken(true)} />`
+    : html`<img src=${item.url} loading="lazy" class="h-full w-full object-cover" onError=${() => setBroken(true)}
+        onLoad=${e => onSize(item.url, e.target.naturalWidth * e.target.naturalHeight)} />`;
+
   return html`
     <div class=${"relative aspect-square overflow-hidden rounded-lg border transition " +
       (selected ? "border-indigo-500" : "border-neutral-700 opacity-40")}>
-      <a href=${item.url} target="_blank" rel="noopener" title=${item.url} class="block h-full w-full bg-neutral-900">
-        ${isPlaceholder
-          ? html`<div class="flex h-full w-full items-center justify-center p-2 text-center text-xs text-neutral-400">${item.kind === "video" ? "▶ видео" : "—"}</div>`
-          : html`<img src=${item.url} loading="lazy" class="h-full w-full object-cover" onError=${() => setBroken(true)}
-              onLoad=${e => onSize(item.url, e.target.naturalWidth * e.target.naturalHeight)} />`}
-      </a>
+      <button type="button" onClick=${() => onPreview(item)} title=${item.url} class="block h-full w-full bg-neutral-900">${media}</button>
       <${SelectMark} selected=${selected} order=${order} onToggle=${() => onToggle(item.url)} posClass="absolute left-1 top-1" />
+      ${ext && html`<span class="pointer-events-none absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-neutral-200">${ext}</span>`}
+    </div>`;
+}
+
+function PreviewModal({ item, onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const ytId = item.kind === "video" ? youtubeId(item.url) : null;
+  const content = ytId
+    ? html`<iframe src=${`https://www.youtube.com/embed/${ytId}?autoplay=1`} class="aspect-video w-[85vw] max-w-3xl"
+        allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+    : item.kind === "video"
+    ? html`<video src=${item.url} controls autoplay class="max-h-[85vh] max-w-[90vw]"></video>`
+    : html`<img src=${item.url} class="max-h-[85vh] max-w-[90vw] object-contain" />`;
+
+  return html`
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick=${onClose}>
+      <div class="relative" onClick=${e => e.stopPropagation()}>
+        <button type="button" onClick=${onClose} title="Закрыть"
+          class="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700">✕</button>
+        ${content}
+        <a href=${item.url} target="_blank" rel="noopener" class="mt-2 block text-center text-xs text-neutral-400 hover:text-neutral-200">Открыть оригинал ↗</a>
+      </div>
     </div>`;
 }
 
@@ -90,6 +145,7 @@ export function MaterialsTab() {
   const [items, setItems] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState([]); // urls, in the order they were clicked
   const [sizes, setSizes] = useState(new Map()); // url -> naturalWidth * naturalHeight, filled in as thumbnails load
+  const [previewItem, setPreviewItem] = useState(null);
   const [meta, setMeta] = useState({ status: "idle", message: "—", filename: "" });
   const [busy, setBusy] = useState(false);
 
@@ -184,7 +240,7 @@ export function MaterialsTab() {
       <section key=${src} class="mt-6">
         <${GroupHeader} label=${SOURCE_LABELS[src]} items=${groups[src]} selectedOrder=${selectedOrder} onSelectAll=${selectAll} />
         <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          ${sortGroup(groups[src], sizes).map(it => html`<${Tile} key=${it.url} item=${it} order=${orderOf(it.url)} onToggle=${toggle} onSize=${reportSize} />`)}
+          ${sortGroup(groups[src], sizes).map(it => html`<${Tile} key=${it.url} item=${it} order=${orderOf(it.url)} onToggle=${toggle} onSize=${reportSize} onPreview=${setPreviewItem} />`)}
         </div>
       </section>
     ` : null)}
@@ -202,5 +258,7 @@ export function MaterialsTab() {
       class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
       Скачать результат
     </button>
+
+    ${previewItem && html`<${PreviewModal} item=${previewItem} onClose=${() => setPreviewItem(null)} />`}
   `;
 }
