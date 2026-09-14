@@ -18,7 +18,6 @@ const navBtnClass = on =>
 
 function App() {
   const [tab, setTab] = useState("reframe");
-  const active = TABS.find(t => t.id === tab);
   return html`
     <div class="flex min-h-screen flex-col md:flex-row">
       <aside class="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
@@ -30,7 +29,9 @@ function App() {
         </nav>
       </aside>
       <main class="mx-auto w-full max-w-4xl flex-1 px-5 py-8">
-        <${active.Component} />
+        ${TABS.map(t => html`
+          <div key=${t.id} hidden=${t.id !== tab}><${t.Component} /></div>
+        `)}
       </main>
     </div>
   `;
