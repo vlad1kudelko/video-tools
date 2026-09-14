@@ -21,6 +21,7 @@ export function ReframeTab() {
   const [gravity, setGravity] = useState("center");
   const [w, setW] = useState(1080);
   const [ht, setHt] = useState(1920);
+  const [duration, setDuration] = useState(2);
   const [files, setFiles] = useState([]);
   const [status, setStatus] = useState({ text: "—", pct: 0 });
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,7 @@ export function ReframeTab() {
     fd.append("height", ht);
     fd.append("mode", mode);
     fd.append("gravity", gravity);
+    fd.append("duration", duration);
     files.forEach(f => fd.append("files", f));
     const r = await fetch("/api/jobs", { method: "POST", body: fd });
     if (!r.ok) {
@@ -85,6 +87,11 @@ export function ReframeTab() {
         <input type="number" min="2" value=${ht} onInput=${e => setHt(+e.target.value)}
           class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
       </label>
+      <label class="text-sm">
+        <span class="mb-1 block text-neutral-400">Длительность для картинок, сек</span>
+        <input type="number" min="0.1" step="0.1" value=${duration} onInput=${e => setDuration(+e.target.value)}
+          class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
+      </label>
     </div>
 
     ${mode === "crop" && html`
@@ -98,8 +105,8 @@ export function ReframeTab() {
       </div>
     `}
 
-    <${DropZone} multiple=${true} accept="video/*" files=${files} onFiles=${setFiles}
-      hint="Перетащите видео сюда или нажмите, чтобы выбрать" />
+    <${DropZone} multiple=${true} accept="video/*,image/*,.zip" files=${files} onFiles=${setFiles}
+      hint="Перетащите видео, картинки, гифки или zip-архив сюда или нажмите, чтобы выбрать" />
 
     <button disabled=${!files.length || busy} onClick=${submit}
       class="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">

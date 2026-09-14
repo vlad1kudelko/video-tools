@@ -17,10 +17,17 @@ async def probe_duration(src: Path) -> float:
         return 0.0
 
 
-async def run_ffmpeg(src: Path, dst: Path, vf: str, job: Job) -> None:
-    dur = await probe_duration(src)
+async def run_ffmpeg(src: Path, dst: Path, vf: str, job: Job, image_duration: float | None = None) -> None:
+    if image_duration is not None:
+        # Still image: loop it into a fixed-length clip instead of a 1-frame video.
+        dur = image_duration
+        input_args = ["-loop", "1", "-t", str(image_duration), "-i", str(src)]
+    else:
+        dur = await probe_duration(src)
+        input_args = ["-i", str(src)]
+
     proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-y", "-i", str(src), "-filter_complex", vf,
+        "ffmpeg", "-y", *input_args, "-filter_complex", vf,
         "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats", str(dst),

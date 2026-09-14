@@ -1,11 +1,12 @@
 import asyncio
+from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, WebSocket
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from .domain import blur_filter, crop_filter
-from .jobs import JOBS, cleanup, new_job, process_job
+from .jobs import JOBS, cleanup, new_job, process_archive_job, process_job
 
 router = APIRouter()
 
@@ -16,15 +17,22 @@ async def create_job(
     height: int = Form(...),
     mode: str = Form("blur"),
     gravity: str = Form("center"),
+    duration: float = Form(2.0),
     files: list[UploadFile] = File(...),
 ):
-    if width < 2 or height < 2 or not files:
+    if width < 2 or height < 2 or duration <= 0 or not files:
         raise HTTPException(400, "bad params")
     w, h = width - width % 2, height - height % 2
     vf = crop_filter(w, h, gravity) if mode == "crop" else blur_filter(w, h)
-    payload = [(f.filename or "video", await f.read()) for f in files]
-    job = new_job(total=len(payload))
-    asyncio.create_task(process_job(job, payload, vf, f"{w}x{h}"))
+
+    if len(files) == 1 and Path(files[0].filename or "").suffix.lower() == ".zip":
+        data = await files[0].read()
+        job = new_job()
+        asyncio.create_task(process_archive_job(job, data, files[0].filename, vf, duration))
+    else:
+        payload = [(f.filename or "media", await f.read()) for f in files]
+        job = new_job(total=len(payload))
+        asyncio.create_task(process_job(job, payload, vf, f"{w}x{h}", duration))
     return {"id": job.id}
 
 
