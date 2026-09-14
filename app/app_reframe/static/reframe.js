@@ -22,7 +22,7 @@ export function ReframeTab() {
   const [w, setW] = useState(1080);
   const [ht, setHt] = useState(1920);
   const [files, setFiles] = useState([]);
-  const [status, setStatus] = useState(null); // { text, pct }
+  const [status, setStatus] = useState({ text: "—", pct: 0 });
   const [busy, setBusy] = useState(false);
   const [resultId, setResultId] = useState(null);
 
@@ -106,22 +106,18 @@ export function ReframeTab() {
       Обработать
     </button>
 
-    ${status && html`
-      <div class="mt-6">
-        <div class="mb-2 flex justify-between text-xs text-neutral-400">
-          <span>${status.text}</span><span>${status.pct == null ? "" : status.pct + "%"}</span>
-        </div>
-        <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
-          <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: (status.pct ?? 0) + "%" }}></div>
-        </div>
+    <div class="mt-6">
+      <div class="mb-2 flex justify-between text-xs text-neutral-400">
+        <span>${status.text}</span><span>${status.pct == null ? "" : status.pct + "%"}</span>
       </div>
-    `}
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+        <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: (status.pct ?? 0) + "%" }}></div>
+      </div>
+    </div>
 
-    ${resultId && html`
-      <a href=${`/api/jobs/${resultId}/download`}
-        class="mt-6 block w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-500">
-        Скачать результат
-      </a>
-    `}
+    <button disabled=${!resultId} onClick=${() => { window.location.href = `/api/jobs/${resultId}/download`; }}
+      class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
+      Скачать результат
+    </button>
   `;
 }

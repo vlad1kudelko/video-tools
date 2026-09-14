@@ -90,7 +90,7 @@ export function MaterialsTab() {
   const [items, setItems] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState([]); // urls, in the order they were clicked
   const [sizes, setSizes] = useState(new Map()); // url -> naturalWidth * naturalHeight, filled in as thumbnails load
-  const [meta, setMeta] = useState(null); // { status, message, filename }
+  const [meta, setMeta] = useState({ status: "idle", message: "—", filename: "" });
   const [busy, setBusy] = useState(false);
 
   const toggle = url => setSelectedOrder(prev =>
@@ -151,7 +151,7 @@ export function MaterialsTab() {
     const i = selectedOrder.indexOf(url);
     return i === -1 ? null : i + 1;
   };
-  const pct = meta?.status === "scanning" ? (PHASE_PCT[meta.message] ?? 10) : meta?.status === "done" ? 100 : 0;
+  const pct = meta.status === "scanning" ? (PHASE_PCT[meta.message] ?? 10) : meta.status === "done" ? 100 : 0;
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Подготовка материала</h1>
@@ -163,26 +163,22 @@ export function MaterialsTab() {
         class="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
     </label>
 
-    <button onClick=${scan} disabled=${busy}
+    <button onClick=${scan} disabled=${!repoUrl.trim() || busy}
       class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
       Сканировать
     </button>
 
-    ${meta && html`
-      <div class="mt-6">
-        <div class="mb-2 flex justify-between text-xs text-neutral-400">
-          <span>${meta.status === "error" ? "Ошибка: " + (meta.message || "неизвестно") : (meta.message || "—")}</span>
-          <span>${items.length ? `${items.length} найдено` : ""}</span>
-        </div>
-        <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
-          <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: pct + "%" }}></div>
-        </div>
+    <div class="mt-6">
+      <div class="mb-2 flex justify-between text-xs text-neutral-400">
+        <span>${meta.status === "error" ? "Ошибка: " + (meta.message || "неизвестно") : (meta.message || "—")}</span>
+        <span>${items.length ? `${items.length} найдено` : ""}</span>
       </div>
-    `}
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+        <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: pct + "%" }}></div>
+      </div>
+    </div>
 
-    ${items.length > 0 && html`
-      <div class="mt-4 text-sm text-neutral-400">Выбрано: <span class="font-semibold text-neutral-200">${selectedOrder.length}</span> из ${items.length}</div>
-    `}
+    <div class="mt-4 text-sm text-neutral-400">Выбрано: <span class="font-semibold text-neutral-200">${selectedOrder.length}</span> из ${items.length}</div>
 
     ${["readme", "site"].map(src => groups[src].length ? html`
       <section key=${src} class="mt-6">
@@ -202,11 +198,9 @@ export function MaterialsTab() {
       </section>
     ` : null}
 
-    ${meta?.status === "done" && html`
-      <button onClick=${download}
-        class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-500">
-        Скачать ${meta.filename || "links.txt"}
-      </button>
-    `}
+    <button onClick=${download} disabled=${meta.status !== "done"}
+      class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
+      Скачать результат
+    </button>
   `;
 }
