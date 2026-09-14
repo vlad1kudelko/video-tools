@@ -7,9 +7,7 @@ from playwright.async_api import async_playwright
 
 from .jobs import RecordJob
 
-SCROLL_STEP_PX = 15
 TICK_SECONDS = 0.05
-MAX_SECONDS = 90
 
 
 async def _probe_duration(path: Path) -> float:
@@ -48,7 +46,10 @@ async def _to_mp4(src: Path, dst: Path, job: RecordJob) -> None:
     job.progress = 1.0
 
 
-async def run_record(job: RecordJob, url: str, width: int, height: int, workdir: Path) -> None:
+async def run_record(
+    job: RecordJob, url: str, width: int, height: int, workdir: Path,
+    scroll_speed: float, max_seconds: float,
+) -> None:
     """Load the page in a real (rendering) Chromium, record the context video
     while scrolling smoothly to the bottom, then re-encode the result to mp4."""
     workdir.mkdir(parents=True, exist_ok=True)
@@ -66,6 +67,7 @@ async def run_record(job: RecordJob, url: str, width: int, height: int, workdir:
                 await page.goto(url, wait_until="load", timeout=30000)
 
                 job.message = "Запись и прокрутка"
+                step = scroll_speed * TICK_SECONDS
                 started = time.monotonic()
                 while True:
                     state = await page.evaluate(
@@ -73,9 +75,9 @@ async def run_record(job: RecordJob, url: str, width: int, height: int, workdir:
                     )
                     job.progress = min(state["y"] / max(state["h"] - state["vh"], 1), 1.0)
                     elapsed = time.monotonic() - started
-                    if state["y"] + state["vh"] >= state["h"] - 2 or elapsed > MAX_SECONDS:
+                    if state["y"] + state["vh"] >= state["h"] - 2 or elapsed > max_seconds:
                         break
-                    await page.evaluate("(step) => window.scrollBy(0, step)", SCROLL_STEP_PX)
+                    await page.evaluate("(step) => window.scrollBy(0, step)", step)
                     await asyncio.sleep(TICK_SECONDS)
 
                 video = page.video

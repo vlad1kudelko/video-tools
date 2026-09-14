@@ -16,13 +16,15 @@ async def start(
     url: str = Form(...),
     width: int = Form(1080),
     height: int = Form(1920),
+    scroll_speed: float = Form(360.0),
+    max_seconds: float = Form(60.0),
 ):
-    if not url.strip() or width < 2 or height < 2:
+    if not url.strip() or width < 2 or height < 2 or scroll_speed <= 0 or max_seconds <= 0:
         raise HTTPException(400, "bad params")
     w, h = width - width % 2, height - height % 2
     job = new_job()
     workdir = TMP / job.id
-    asyncio.create_task(run_record(job, url.strip(), w, h, workdir))
+    asyncio.create_task(run_record(job, url.strip(), w, h, workdir, scroll_speed, max_seconds))
     return {"id": job.id}
 
 

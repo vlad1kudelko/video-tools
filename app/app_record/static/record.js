@@ -8,6 +8,8 @@ export function RecordTab() {
   const [url, setUrl] = useState("");
   const [w, setW] = useState(1080);
   const [h_, setH] = useState(1920);
+  const [scrollSpeed, setScrollSpeed] = useState(360);
+  const [maxSeconds, setMaxSeconds] = useState(60);
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);
   const [busy, setBusy] = useState(false);
@@ -24,6 +26,8 @@ export function RecordTab() {
     fd.append("url", url.trim());
     fd.append("width", w);
     fd.append("height", h_);
+    fd.append("scroll_speed", scrollSpeed);
+    fd.append("max_seconds", maxSeconds);
     const r = await fetch("/api/record/start", { method: "POST", body: fd });
     if (!r.ok) {
       setState({ status: "error", message: "Ошибка запроса", progress: 0 });
@@ -64,6 +68,19 @@ export function RecordTab() {
         <span class="mb-1 block text-neutral-400">Высота</span>
         <input type="number" min="2" value=${h_} onInput=${e => setH(+e.target.value)}
           class="w-28 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
+      </label>
+    </div>
+
+    <div class="mb-5 flex items-end gap-3">
+      <label class="text-sm">
+        <span class="mb-1 block text-neutral-400">Скорость прокрутки, px/сек</span>
+        <input type="number" min="1" value=${scrollSpeed} onInput=${e => setScrollSpeed(+e.target.value)}
+          class="w-36 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block text-neutral-400">Макс. длительность, сек</span>
+        <input type="number" min="1" value=${maxSeconds} onInput=${e => setMaxSeconds(+e.target.value)}
+          class="w-36 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-indigo-500" />
       </label>
     </div>
 
