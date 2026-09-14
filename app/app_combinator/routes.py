@@ -15,12 +15,16 @@ router = APIRouter()
 async def generate(
     files: list[UploadFile] = File(...),
     blocks: list[str] = Form(...),
+    repeats: list[str] = Form(...),
     transition: str = Form("fade"),
     transition_duration: float = Form(0.5),
 ):
     if len(files) != len(blocks) or not files:
         raise HTTPException(400, "bad params")
     n_blocks = max(int(b) for b in blocks) + 1
+    if len(repeats) != n_blocks:
+        raise HTTPException(400, "bad params")
+    block_repeats = [max(1, int(r)) for r in repeats]
     blocks_files: list[list[tuple[str, bytes]]] = [[] for _ in range(n_blocks)]
     for f, b in zip(files, blocks):
         blocks_files[int(b)].append((f.filename or "file", await f.read()))
@@ -29,7 +33,7 @@ async def generate(
 
     job = new_job()
     workdir = TMP / job.id
-    asyncio.create_task(run_generate(job, blocks_files, transition, transition_duration, workdir))
+    asyncio.create_task(run_generate(job, blocks_files, block_repeats, transition, transition_duration, workdir))
     return {"id": job.id}
 
 

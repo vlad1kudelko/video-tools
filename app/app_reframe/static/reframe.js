@@ -1,5 +1,5 @@
 import { DropZone } from "/dropzone.js";
-import { uploadWithProgress } from "/upload.js";
+import { uploadWithProgress, combinedPct } from "/upload.js";
 
 const { h } = preact;
 const { useState } = preactHooks;
@@ -42,7 +42,7 @@ export function ReframeTab() {
     fd.append("duration", duration);
     files.forEach(f => fd.append("files", f));
     const r = await uploadWithProgress("/api/jobs", fd,
-      frac => setStatus({ text: "Загрузка файлов…", pct: Math.round(frac * 100) }));
+      frac => setStatus({ text: "Загрузка файлов…", pct: combinedPct(frac, 0) }));
     if (!r.ok) {
       setStatus({ text: "Ошибка запроса", pct: 0 });
       setBusy(false);
@@ -55,7 +55,7 @@ export function ReframeTab() {
       if (j.status === "processing") {
         setStatus({
           text: `Обработка ${Math.min(j.done + 1, j.total)} / ${j.total}`,
-          pct: Math.round(((j.done + j.progress) / j.total) * 100),
+          pct: combinedPct(1, (j.done + j.progress) / j.total),
         });
       } else if (j.status === "done") {
         setStatus({ text: "Готово", pct: 100 });

@@ -1,5 +1,5 @@
 import { DropZone } from "/dropzone.js";
-import { uploadWithProgress } from "/upload.js";
+import { uploadWithProgress, combinedPct } from "/upload.js";
 
 const { h } = preact;
 const { useState } = preactHooks;
@@ -11,7 +11,7 @@ export function DownloadTab() {
   const [files, setFiles] = useState([]);
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);
-  const [uploadPct, setUploadPct] = useState(0);
+  const [uploadFrac, setUploadFrac] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const start = async () => {
@@ -19,13 +19,12 @@ export function DownloadTab() {
     if (!file) return;
     setBusy(true);
     setJobId(null);
-    setUploadPct(0);
+    setUploadFrac(0);
     setState({ ...IDLE_STATE, status: "processing", message: "Загрузка файла…" });
 
     const fd = new FormData();
     fd.append("file", file);
-    const r = await uploadWithProgress("/api/downloads/start", fd,
-      frac => setUploadPct(Math.round(frac * 100)));
+    const r = await uploadWithProgress("/api/downloads/start", fd, setUploadFrac);
     if (!r.ok) {
       setState({ ...IDLE_STATE, status: "error", message: "Ошибка запроса" });
       setBusy(false);
@@ -41,11 +40,8 @@ export function DownloadTab() {
     };
   };
 
-  const overallPct = !jobId
-    ? uploadPct
-    : state.status === "done"
-      ? 100
-      : state.total ? Math.min(100, Math.round(((state.done + state.current_progress) / state.total) * 100)) : 0;
+  const processFrac = state.status === "done" ? 1 : state.total ? Math.min(1, (state.done + state.current_progress) / state.total) : 0;
+  const overallPct = !jobId ? combinedPct(uploadFrac, 0) : combinedPct(1, processFrac);
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Скачивание медиа</h1>

@@ -49,7 +49,7 @@ def _gather_pool(files: list[tuple[str, bytes]], pool_dir: Path) -> list[Path]:
 
 
 async def run_generate(
-    job: CombinatorJob, blocks_files: list[list[tuple[str, bytes]]],
+    job: CombinatorJob, blocks_files: list[list[tuple[str, bytes]]], block_repeats: list[int],
     transition: str, transition_duration: float, workdir: Path,
 ) -> None:
     try:
@@ -62,11 +62,12 @@ async def run_generate(
         job.message = "Выбор файлов"
         used_names: set[str] = set()
         picks: list[Path] = []
-        for pool in pools:
-            candidates = [p for p in pool if p.name not in used_names] or pool
-            chosen = least_used_pick(candidates)
-            picks.append(chosen)
-            used_names.add(chosen.name)
+        for pool, repeat in zip(pools, block_repeats):
+            for _ in range(repeat):
+                candidates = [p for p in pool if p.name not in used_names] or pool
+                chosen = least_used_pick(candidates)
+                picks.append(chosen)
+                used_names.add(chosen.name)
 
         clips = [
             ClipInput(path=p, forced_duration=IMAGE_CLIP_DURATION if _classify(p.name) == "image" else None)

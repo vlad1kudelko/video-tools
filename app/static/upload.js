@@ -18,3 +18,11 @@ export function uploadWithProgress(url, formData, onProgress) {
     xhr.send(formData);
   });
 }
+
+// Upload and processing are two phases of one overall progress bar, not two
+// separate bars — without this the bar would jump back to 0% the moment the
+// upload finishes and server-side processing starts.
+export const UPLOAD_WEIGHT = 0.3;
+export function combinedPct(uploadFrac, processFrac, uploadWeight = UPLOAD_WEIGHT) {
+  return Math.round((uploadFrac * uploadWeight + processFrac * (1 - uploadWeight)) * 100);
+}
