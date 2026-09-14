@@ -37,8 +37,9 @@ export function DownloadTab() {
     };
   };
 
-  const overallPct = state.total ? Math.round((state.done / state.total) * 100) : 0;
-  const currentPct = Math.round(state.current_progress * 100);
+  const overallPct = state.status === "done"
+    ? 100
+    : state.total ? Math.min(100, Math.round(((state.done + state.current_progress) / state.total) * 100)) : 0;
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Скачивание медиа</h1>
@@ -59,15 +60,6 @@ export function DownloadTab() {
         </div>
         <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
           <div class="h-full bg-indigo-500 transition-all duration-300" style=${{ width: overallPct + "%" }}></div>
-        </div>
-      </div>
-
-      <div>
-        <div class="mb-2 flex justify-between text-xs text-neutral-400">
-          <span>${state.current_name || "—"}</span><span>${currentPct}%</span>
-        </div>
-        <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
-          <div class="h-full bg-indigo-400 transition-all duration-150" style=${{ width: currentPct + "%" }}></div>
         </div>
       </div>
 
