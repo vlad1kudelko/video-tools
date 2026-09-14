@@ -1,12 +1,22 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .app_combinator.routes import router as combinator_router
 from .app_concat.routes import router as concat_router
 from .app_download.routes import router as download_router
 from .app_materials.routes import router as materials_router
 from .app_record.routes import router as record_router
 from .app_reframe.routes import router as reframe_router
-from .config import CONCAT_STATIC, DOWNLOAD_STATIC, MATERIALS_STATIC, RECORD_STATIC, REFRAME_STATIC, STATIC, TMP
+from .config import (
+    COMBINATOR_STATIC,
+    CONCAT_STATIC,
+    DOWNLOAD_STATIC,
+    MATERIALS_STATIC,
+    RECORD_STATIC,
+    REFRAME_STATIC,
+    STATIC,
+    TMP,
+)
 
 app = FastAPI()
 app.include_router(reframe_router)
@@ -14,6 +24,7 @@ app.include_router(materials_router)
 app.include_router(download_router)
 app.include_router(record_router)
 app.include_router(concat_router)
+app.include_router(combinator_router)
 
 
 @app.on_event("startup")
@@ -28,4 +39,5 @@ app.mount("/materials-static", StaticFiles(directory=MATERIALS_STATIC), name="ma
 app.mount("/download-static", StaticFiles(directory=DOWNLOAD_STATIC), name="download-static")
 app.mount("/record-static", StaticFiles(directory=RECORD_STATIC), name="record-static")
 app.mount("/concat-static", StaticFiles(directory=CONCAT_STATIC), name="concat-static")
+app.mount("/combinator-static", StaticFiles(directory=COMBINATOR_STATIC), name="combinator-static")
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

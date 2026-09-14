@@ -3,6 +3,7 @@ import { MaterialsTab } from "/materials-static/materials.js";
 import { DownloadTab } from "/download-static/download.js";
 import { RecordTab } from "/record-static/record.js";
 import { ConcatTab } from "/concat-static/concat.js";
+import { CombinatorTab } from "/combinator-static/combinator.js";
 
 const { h, render } = preact;
 const { useState } = preactHooks;
@@ -14,6 +15,7 @@ const TABS = [
   { id: "record", label: "3. Запись экрана", Component: RecordTab },
   { id: "reframe", label: "4. Кадрирование", Component: ReframeTab },
   { id: "concat", label: "5. Склейка видео", Component: ConcatTab },
+  { id: "combinator", label: "6. Комбинатор", Component: CombinatorTab },
 ];
 
 const navBtnClass = on =>
