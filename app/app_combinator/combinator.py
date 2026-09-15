@@ -1,5 +1,6 @@
 import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 from ..clip_assembly import ClipInput, assemble_clips
@@ -75,7 +76,7 @@ async def run_generate(
         ]
 
         job.message = "Склейка"
-        out_path = workdir / "combination[combinator].mp4"
+        out_path = workdir / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
         await assemble_clips(clips, transition, transition_duration, out_path, job)
 
         record_usage([p.name for p in picks])
