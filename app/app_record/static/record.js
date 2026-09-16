@@ -99,7 +99,11 @@ export function RecordTab() {
       </div>
     </div>
 
-    <button disabled=${state.status !== "done"} onClick=${() => { window.location.href = `/api/record/${jobId}/file`; }}
+    <button disabled=${state.status !== "done"} onClick=${() => {
+      window.location.href = `/api/record/${jobId}/file`;
+      setJobId(null);
+      setState(IDLE_STATE);
+    }}
       class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
       Скачать результат
     </button>

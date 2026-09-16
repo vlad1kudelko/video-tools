@@ -124,7 +124,11 @@ export function ReframeTab() {
       </div>
     </div>
 
-    <button disabled=${!resultId} onClick=${() => { window.location.href = `/api/jobs/${resultId}/download`; }}
+    <button disabled=${!resultId} onClick=${() => {
+      window.location.href = `/api/jobs/${resultId}/download`;
+      setResultId(null);
+      setStatus({ text: "—", pct: 0 });
+    }}
       class="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500">
       Скачать результат
     </button>
