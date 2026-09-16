@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..clip_assembly import ClipInput, assemble_clips
 from .jobs import CombinatorJob
-from .usage import least_used_pick, record_usage
+from .usage import counts_from_log, least_used_pick, load_log, record_usage
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".avif"}
 GIF_EXT = {".gif"}
@@ -61,12 +61,13 @@ async def run_generate(
             return
 
         job.message = "Выбор файлов"
+        counts = counts_from_log(load_log())
         used_names: set[str] = set()
         picks: list[Path] = []
         for pool, repeat in zip(pools, block_repeats):
             for _ in range(repeat):
                 candidates = [p for p in pool if p.name not in used_names] or pool
-                chosen = least_used_pick(candidates)
+                chosen = least_used_pick(candidates, counts)
                 picks.append(chosen)
                 used_names.add(chosen.name)
 
