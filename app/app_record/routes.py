@@ -4,11 +4,16 @@ from fastapi import APIRouter, Form, HTTPException, WebSocket
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
-from ..config import TMP
+from ..config import TMP, WITH_BROWSER
 from .jobs import JOBS, cleanup, new_job
 from .record import run_record
 
 router = APIRouter()
+
+
+@router.get("/api/record/available")
+def available():
+    return {"available": WITH_BROWSER}
 
 
 @router.post("/api/record/start")
@@ -19,6 +24,8 @@ async def start(
     scroll_speed: float = Form(250.0),
     max_seconds: float = Form(60.0),
 ):
+    if not WITH_BROWSER:
+        raise HTTPException(503, "browser not built into this image — rebuild with WITH_BROWSER=true")
     if not url.strip() or width < 2 or height < 2 or scroll_speed <= 0 or max_seconds <= 0:
         raise HTTPException(400, "bad params")
     w, h = width - width % 2, height - height % 2

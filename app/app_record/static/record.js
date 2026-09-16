@@ -1,10 +1,11 @@
 const { h } = preact;
-const { useState } = preactHooks;
+const { useState, useEffect } = preactHooks;
 const html = htm.bind(h);
 
 const IDLE_STATE = { status: "idle", message: "—", progress: 0 };
 
 export function RecordTab() {
+  const [available, setAvailable] = useState(null); // null = still checking
   const [url, setUrl] = useState("");
   const [w, setW] = useState(1080);
   const [h_, setH] = useState(1920);
@@ -13,6 +14,13 @@ export function RecordTab() {
   const [jobId, setJobId] = useState(null);
   const [state, setState] = useState(IDLE_STATE);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/record/available")
+      .then(r => r.json())
+      .then(j => setAvailable(!!j.available))
+      .catch(() => setAvailable(false));
+  }, []);
 
   const swap = () => { setW(h_); setH(w); };
 
@@ -45,6 +53,21 @@ export function RecordTab() {
   };
 
   const pct = state.status === "done" ? 100 : Math.round(state.progress * 100);
+
+  if (available === null) {
+    return html`<h1 class="mb-6 text-lg font-semibold">Запись экрана</h1>`;
+  }
+
+  if (!available) {
+    return html`
+      <h1 class="mb-6 text-lg font-semibold">Запись экрана</h1>
+      <div class="rounded-lg border border-amber-700/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+        Модуль записи экрана отключён в этой сборке — браузер не встроен в образ.
+        Пересоберите с включённым браузером:
+        <code class="mt-2 block rounded bg-black/30 px-2 py-1 font-mono text-xs">WITH_BROWSER=true docker compose up -d --build</code>
+      </div>
+    `;
+  }
 
   return html`
     <h1 class="mb-6 text-lg font-semibold">Запись экрана</h1>

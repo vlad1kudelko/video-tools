@@ -9,4 +9,11 @@ docker compose up --build
 # http://localhost:8000
 ```
 
+Вкладка «Запись экрана» требует Chromium в образе (~1.5-2GB) — по умолчанию
+выключен, чтобы сборка оставалась лёгкой. Включить:
+
+```bash
+WITH_BROWSER=true docker compose up -d --build
+```
+
 Несколько файлов на входе → результат приходит архивом `.zip`.

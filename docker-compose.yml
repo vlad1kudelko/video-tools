@@ -1,6 +1,9 @@
 services:
   video-tools:
-    build: .
+    build:
+      context: .
+      args:
+        WITH_BROWSER: ${WITH_BROWSER:-false}
     ports:
       - "8000:8000"
     restart: unless-stopped
