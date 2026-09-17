@@ -1,4 +1,5 @@
 import asyncio
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -16,9 +17,22 @@ class _ProgressJob(Protocol):
     progress: float
 
 
+def _parse_fps(fps: str) -> float:
+    """"30" or "30000/1001"-style ffprobe r_frame_rate strings -> float."""
+    if "/" in fps:
+        num, den = fps.split("/", 1)
+        return float(num) / float(den)
+    return float(fps)
+
+
 async def assemble_clips(
     clips: list[ClipInput], transition: str, transition_duration: float,
     out_path: Path, job: _ProgressJob,
+    target_size: tuple[int, int] | None = None,
+    target_fps: str | None = None,
+    video_bitrate: str | None = None,
+    preset: str = "veryfast",
+    gop_seconds: float | None = None,
 ) -> None:
     """Normalize every clip to the first clip's resolution/fps and chain them
     together, then mux in audio — a real track where present, silence where
@@ -36,7 +50,21 @@ async def assemble_clips(
     forward normally. Every clip still contributes exactly its own duration
     to the timeline, so the total video length is exactly sum(durations) —
     identical, by construction, to the plain audio concat's length. No
-    trimming or padding needed to line them up."""
+    trimming or padding needed to line them up.
+
+    `target_size`/`target_fps` override the default of normalizing to the
+    first clip's own resolution/fps — needed by callers (e.g. "Стрим") that
+    render many separate, differently-ordered clip lists over time and must
+    keep output geometry constant across all of them. `video_bitrate` (e.g.
+    "4500k") pins the encode to a capped bitrate instead of the default
+    CRF-driven one, needed for a stable live-stream feed. `preset` overrides
+    the default "veryfast" x264 preset — a live-stream caller needs encoding
+    to reliably outrun real-time playback, so it passes "ultrafast".
+    `gop_seconds`, when given, forces a closed keyframe interval of that
+    length instead of x264's own scene-cut-driven default (which can drift
+    to several seconds between keyframes) — RTMP ingest (YouTube in
+    particular) requires keyframes at most a few seconds apart or it warns
+    about/struggles with buffering."""
     infos = []
     for c in clips:
         info = await probe(c.path)
@@ -46,9 +74,8 @@ async def assemble_clips(
     durations = [info["duration"] or 0.1 for info in infos]
     total_duration = sum(durations)
 
-    w = infos[0]["width"] or 1280
-    h = infos[0]["height"] or 720
-    fps = infos[0]["r_frame_rate"]
+    w, h = target_size if target_size else (infos[0]["width"] or 1280, infos[0]["height"] or 720)
+    fps = target_fps or infos[0]["r_frame_rate"]
 
     td = transition_duration
     if len(clips) > 1:
@@ -122,10 +149,25 @@ async def assemble_clips(
 
     filter_complex = ";".join(video_parts + audio_parts)
 
+    bitrate_args = []
+    if video_bitrate:
+        m = re.match(r"^(\d+)([kKmM]?)$", video_bitrate)
+        bufsize = f"{int(m.group(1)) * 2}{m.group(2)}" if m else video_bitrate
+        bitrate_args = ["-b:v", video_bitrate, "-maxrate", video_bitrate, "-bufsize", bufsize]
+
+    gop_args = []
+    if gop_seconds:
+        gop_frames = max(1, round(gop_seconds * _parse_fps(fps)))
+        # sc_threshold 0 disables x264's scene-cut-adaptive keyframes, which
+        # is what actually lets the interval drift past `-g` in the first
+        # place — without it, a run of similar-looking clips can go many
+        # seconds without a real scene cut and thus without a keyframe.
+        gop_args = ["-g", str(gop_frames), "-keyint_min", str(gop_frames), "-sc_threshold", "0"]
+
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-y", *input_args, "-filter_complex", filter_complex,
         "-map", f"[{video_label}]", "-map", "[aout]",
-        "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", preset, "-pix_fmt", "yuv420p", *bitrate_args, *gop_args,
         "-c:a", "aac", "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats", str(out_path),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,

@@ -4,6 +4,7 @@ import { DownloadTab } from "/download-static/download.js";
 import { RecordTab } from "/record-static/record.js";
 import { ConcatTab } from "/concat-static/concat.js";
 import { CombinatorTab } from "/combinator-static/combinator.js";
+import { StreamTab } from "/stream-static/stream.js";
 
 const { h, render } = preact;
 const { useState } = preactHooks;
@@ -16,6 +17,7 @@ const TABS = [
   { id: "reframe", label: "4. Кадрирование", Component: ReframeTab },
   { id: "concat", label: "5. Склейка видео", Component: ConcatTab },
   { id: "combinator", label: "6. Комбинатор", Component: CombinatorTab },
+  { id: "stream", label: "7. Стрим", Component: StreamTab },
 ];
 
 const navBtnClass = on =>
