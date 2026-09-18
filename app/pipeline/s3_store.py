@@ -4,7 +4,7 @@ import boto3
 
 from ..config import S3_ACCESS_KEY, S3_BUCKET, S3_ENDPOINT, S3_REGION, S3_SECRET_KEY
 
-GRAPH_KEY = "pipelines/graph.json"
+GRAPH_KEY = "system/graph.json"
 
 _client = None
 
