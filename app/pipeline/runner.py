@@ -78,7 +78,7 @@ def _set_node_result(node_id: str, path: Path) -> None:
     NODE_RESULTS[node_id] = path
 
 
-def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
+async def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
     """Shared by a node's single `input` and each block's own `input` in
     `blocks` — same {"kind": "inline"|"edge", ...} shape either way."""
     if not input_dict:
@@ -97,7 +97,10 @@ def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> Pi
         src_path = results.get(src_id)
         if src_path is None:
             raise RuntimeError(f"нет результата у узла {src_id}")
-        data = src_path.read_bytes()
+        # A large upstream result (e.g. a file pulled from S3) read
+        # synchronously would freeze the whole event loop for as long as the
+        # read takes — no WS updates, no other coroutine runs meanwhile.
+        data = await asyncio.to_thread(src_path.read_bytes)
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError:
@@ -145,15 +148,15 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             params = manifest.params_model.model_validate(node.params)
             st.status = "processing"
             if manifest.block_input is not None:
-                blocks = [
-                    BlockInput(input=_resolve_input_dict(b.get("input"), results), count=max(1, int(b.get("count", 1))))
-                    for b in (node.blocks or [])
-                ]
+                blocks = []
+                for b in node.blocks or []:
+                    block_input = await _resolve_input_dict(b.get("input"), results)
+                    blocks.append(BlockInput(input=block_input, count=max(1, int(b.get("count", 1)))))
                 if not blocks:
                     raise RuntimeError("нужен хотя бы один блок")
                 job = await manifest.start(blocks, params)
             else:
-                inp = _resolve_input_dict(node.input, results)
+                inp = await _resolve_input_dict(node.input, results)
                 job = await manifest.start(inp, params)
             while job.status == "processing":
                 st.message = job.message
