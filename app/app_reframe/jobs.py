@@ -1,5 +1,6 @@
 import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -44,10 +45,13 @@ async def process_job(job: Job, payload: list[tuple[str, bytes]], vf: str, suffi
             outs.append(dst)
             job.done = i + 1
             sync_progress(job)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         if len(outs) == 1:
-            job.result, job.is_zip = outs[0], False
+            renamed = outs[0].with_name(f"app_reframe-{timestamp}.mp4")
+            outs[0].rename(renamed)
+            job.result, job.is_zip = renamed, False
         else:
-            zpath = workdir / "result.zip"
+            zpath = workdir / f"app_reframe-{timestamp}.zip"
             with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
                 for o in outs:
                     z.write(o, o.name)
@@ -94,8 +98,7 @@ async def process_archive_job(job: Job, zip_bytes: bytes, original_name: str, vf
             job.done = i + 1
             sync_progress(job)
 
-        stem = Path(original_name).stem
-        zpath = workdir / f"{stem}[reframe].zip"
+        zpath = workdir / f"app_reframe-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
         with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zout:
             for f in sorted(out_dir.rglob("*")):
                 if f.is_file():

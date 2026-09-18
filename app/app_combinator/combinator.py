@@ -36,7 +36,7 @@ async def run_generate(
         ]
 
         job.message = "Склейка"
-        out_path = workdir / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+        out_path = workdir / f"app_combinator-{datetime.now().strftime('%Y%m%d-%H%M%S')}.mp4"
         await assemble_clips(clips, transition, transition_duration, out_path, job)
 
         record_usage([p.name for p in picks])

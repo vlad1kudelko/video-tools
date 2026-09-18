@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -70,10 +71,13 @@ async def _run(job: _Job, data: bytes, name: str, params: FilterParams) -> None:
             job.status, job.message = "error", "Нет файлов с разрешением — всё отфильтровано"
             return
 
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         if len(ordered) == 1 and not came_as_archive:
-            job.result = ordered[0]
+            renamed = ordered[0].with_name(f"app_filter-{timestamp}{ordered[0].suffix}")
+            ordered[0].rename(renamed)
+            job.result = renamed
         else:
-            zpath = workdir / f"{Path(name).stem}[filtered].zip"
+            zpath = workdir / f"app_filter-{timestamp}.zip"
             with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zout:
                 for i, p in enumerate(ordered):
                     zout.write(p, f"{i + 1:03d}{p.suffix}")

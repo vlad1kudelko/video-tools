@@ -1,5 +1,6 @@
 import mimetypes
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -80,7 +81,7 @@ async def run_download(job: DownloadJob, raw_text: str) -> None:
             job.status, job.message = "error", "Не удалось скачать ни одной ссылки"
             return
 
-        zpath = workdir / "media.zip"
+        zpath = workdir / f"app_download-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
         with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
             for p in saved:
                 z.write(p, p.name)

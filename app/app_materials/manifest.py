@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -96,7 +97,7 @@ async def _run(job: _PipelineJob, repo_url: str) -> None:
 
         workdir = TMP / uuid4().hex[:12]
         workdir.mkdir(parents=True, exist_ok=True)
-        out_path = workdir / f"{owner}--{repo}.txt".lower()
+        out_path = workdir / f"app_materials-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
         out_path.write_text("\n".join(f"{it.url} -> {size}" for it, size in ranked) + "\n", encoding="utf-8")
 
         job.result = out_path

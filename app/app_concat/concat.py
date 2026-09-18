@@ -1,5 +1,6 @@
 import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 from ..clip_assembly import ClipInput, assemble_clips
@@ -36,7 +37,7 @@ async def run_concat(
         clips = [ClipInput(path=extract_dir / n) for n in clip_names]
 
         job.message = "Склейка"
-        out_path = workdir / f"{Path(original_name).stem}[concat].mp4"
+        out_path = workdir / f"app_concat-{datetime.now().strftime('%Y%m%d-%H%M%S')}.mp4"
         await assemble_clips(clips, transition, transition_duration, out_path, job)
 
         job.result = out_path
