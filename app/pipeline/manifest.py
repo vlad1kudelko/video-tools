@@ -9,8 +9,13 @@ from .types import PortType
 
 @dataclass
 class PipelineInput:
-    """What flows into a node's data input — either text (links.txt-shaped)
-    or binary file/archive content, never both."""
+    """What flows into a node's data input. `data` is always the raw bytes;
+    `text` is additionally populated whenever those bytes decode as UTF-8
+    (true for an inline-pasted links list, and for any upstream node whose
+    own output happens to be text-shaped, e.g. "Материалы" feeding
+    "Скачивание" over an edge) — a text-input module reads `.text`, a
+    file/archive-input module reads `.data`; either can be present without
+    the other only for a genuinely binary source."""
 
     name: str = ""
     text: str | None = None

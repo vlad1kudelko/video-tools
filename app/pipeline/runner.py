@@ -69,7 +69,12 @@ def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> Pi
         src_path = results.get(src_id)
         if src_path is None:
             raise RuntimeError(f"нет результата у узла {src_id}")
-        return PipelineInput(name=src_path.name, data=src_path.read_bytes())
+        data = src_path.read_bytes()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text = None
+        return PipelineInput(name=src_path.name, data=data, text=text)
     return None
 
 

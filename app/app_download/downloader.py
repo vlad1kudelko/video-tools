@@ -30,7 +30,9 @@ async def download_all(job: DownloadJob, lines: list[str], workdir: Path) -> tup
     job.total = len(lines)
     async with httpx.AsyncClient(headers=_HEADERS, follow_redirects=True, timeout=30) as client:
         for line_no, raw in enumerate(lines, start=1):
-            url = raw.strip()
+            # "Материалы" emits "<url> -> <size>" lines; a plain links.txt
+            # (no " -> ") is untouched by the split.
+            url = raw.split(" -> ", 1)[0].strip()
             name = f"media-{line_no:03d}"
             job.current_name = name
             job.current_progress = 0.0
