@@ -48,6 +48,7 @@ function blockIdFromHandle(handle) {
 const SIDEBAR_ITEMS = [
   { id: "materials", fallbackLabel: "Материалы" },
   { id: "download", fallbackLabel: "Скачивание медиа" },
+  { id: "filter", fallbackLabel: "Фильтрование" },
   { id: "record", fallbackLabel: "Запись экрана" },
   { id: "reframe", fallbackLabel: "Кадрирование" },
   { id: "concat", fallbackLabel: "Склейка видео" },
