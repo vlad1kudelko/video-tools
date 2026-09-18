@@ -2,9 +2,9 @@ import { Handle, Position } from "@xyflow/react";
 import {
   fileToBase64,
   STATUS_LABELS,
-  STATUS_DOT,
   portHandleStyle,
   DeleteNodeButton,
+  NodeStatusDot,
   NodeProgressBar,
 } from "./nodeShared.jsx";
 
@@ -43,7 +43,7 @@ export default function ReframeNode({ id, data, selected }) {
       <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-800 bg-neutral-800/60 px-3 py-2 text-sm font-semibold text-neutral-100">
         <span>{manifest?.label || "Кадрирование"}</span>
         <div className="flex items-center gap-1.5">
-          {status && <span className={`h-5 w-5 rounded-full ${STATUS_DOT[status] || "bg-neutral-500"}`} />}
+          <NodeStatusDot status={status} onRunFromHere={() => data.onRunFromHere?.(id)} />
           <DeleteNodeButton onClick={() => data.onDeleteNode?.(id)} />
         </div>
       </div>

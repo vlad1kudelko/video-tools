@@ -58,11 +58,54 @@ export function ParamField({ name, field, value, onChange, onFocus }) {
   );
 }
 
-export function CrossIcon({ size = 9 }) {
+export function CrossIcon({ size = 11 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
       <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
+  );
+}
+
+export function PlayIcon({ size = 10 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" fill="currentColor">
+      <path d="M2 1.2L8.5 5L2 8.8V1.2Z" />
+    </svg>
+  );
+}
+
+// The status dot doubles as a "run from this node onward" button — always
+// visible and always colored by the node's actual state (gray = idle/queued,
+// amber = running, green = done, red = error), same as the delete button
+// next to it. Hover darkens the same hue rather than swapping to an
+// unrelated color, and the play icon (revealed on hover, opacity only —
+// never transform, so it snaps instead of lagging) is a darker shade of
+// that same hue instead of a plain white glyph, so the whole thing reads as
+// one coherent color rather than a color plus a generic overlay.
+const STATUS_COLORS = {
+  idle: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
+  queued: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
+  processing: { base: "bg-amber-400 animate-pulse", hover: "hover:bg-amber-600", icon: "text-amber-950" },
+  done: { base: "bg-emerald-400", hover: "hover:bg-emerald-600", icon: "text-emerald-950" },
+  error: { base: "bg-red-400", hover: "hover:bg-red-600", icon: "text-red-950" },
+};
+
+export function NodeStatusDot({ status, onRunFromHere }) {
+  const c = STATUS_COLORS[status] || STATUS_COLORS.idle;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRunFromHere?.();
+      }}
+      title="Запустить с этой ноды"
+      className={`group flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${c.base} ${c.hover}`}
+    >
+      <span className={`flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 ${c.icon}`}>
+        <PlayIcon />
+      </span>
+    </button>
   );
 }
 
@@ -75,7 +118,7 @@ export function DeleteNodeButton({ onClick }) {
         onClick();
       }}
       title="Удалить ноду"
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-red-600 hover:text-white"
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-400 text-neutral-950 transition-colors hover:bg-red-600 hover:text-red-950"
     >
       <CrossIcon />
     </button>
@@ -95,13 +138,6 @@ export const STATUS_LABELS = {
   processing: "выполняется",
   done: "готово",
   error: "ошибка",
-};
-
-export const STATUS_DOT = {
-  queued: "bg-neutral-500",
-  processing: "bg-amber-400 animate-pulse",
-  done: "bg-emerald-500",
-  error: "bg-red-500",
 };
 
 export function NodeProgressBar({ status, progress }) {

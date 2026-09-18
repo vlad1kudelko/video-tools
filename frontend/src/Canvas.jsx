@@ -4,7 +4,7 @@ import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
-import { listModules, runPipeline, subscribeRun } from "./api.js";
+import { clearAllFiles, listModules, runPipeline, subscribeRun } from "./api.js";
 import { PORT_LEGEND } from "./nodeShared.jsx";
 
 const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
@@ -277,9 +277,83 @@ export default function Canvas() {
     [commit, setEdges, setNodes, resetEdgeTarget]
   );
 
+  // How one node's input resolves for a run request — an edge into the given
+  // handle (from the given edge list), else whatever's been supplied inline.
+  // Takes `edgeList` explicitly rather than closing over `edges` state so it
+  // works correctly both from the toolbar Run button (fresh closure each
+  // render) and from `runFromNode` below (frozen into node data at creation
+  // time, so it must read through a ref — same reasoning as `onDeleteNode`).
+  const resolveInput = useCallback((targetHandle, edgeList, widgetState) => {
+    const edge = edgeList.find((e) => e.target === widgetState.nodeId && e.targetHandle === targetHandle);
+    if (edge) return { kind: "edge", from: edge.source };
+    if (widgetState.inlineFileBase64) {
+      return { kind: "inline", data_base64: widgetState.inlineFileBase64, name: widgetState.inlineFileName };
+    }
+    if (widgetState.inlineText) return { kind: "inline", text: widgetState.inlineText };
+    return null;
+  }, []);
+
+  const buildGraphNodes = useCallback(
+    (nodeList, edgeList) => {
+      const order = topoSort(nodeList, edgeList);
+      return order.map((id) => {
+        const node = nodeList.find((n) => n.id === id);
+        if (node.type === "combinator") {
+          const blocks = (node.data.blocks || []).map((b) => ({
+            input: resolveInput(`block-${b.id}`, edgeList, {
+              nodeId: id,
+              inlineFileBase64: b.inlineFileBase64,
+              inlineFileName: b.inlineFileName,
+            }),
+            count: b.count,
+          }));
+          return { node_id: id, module_id: node.data.moduleId, params: node.data.params, blocks };
+        }
+        const input = resolveInput("in", edgeList, {
+          nodeId: id,
+          inlineFileBase64: node.data.inlineFileBase64,
+          inlineFileName: node.data.inlineFileName,
+          inlineText: node.data.inlineText,
+        });
+        return { node_id: id, module_id: node.data.moduleId, params: node.data.params, input };
+      });
+    },
+    [resolveInput]
+  );
+
+  const runGraph = useCallback(
+    async (startFrom, nodeList, edgeList) => {
+      setRunError("");
+      setRunDone(false);
+      setRunId(null);
+      const graphNodes = buildGraphNodes(nodeList, edgeList);
+      try {
+        const { run_id } = await runPipeline({ nodes: graphNodes, start_from: startFrom });
+        setRunId(run_id);
+        subscribeRun(run_id, (update) => {
+          update.nodes.forEach((n) =>
+            updateNodeData(n.node_id, { status: n.status, statusLabel: n.message, progress: n.progress })
+          );
+          if (update.status === "done") setRunDone(true);
+          if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
+        });
+      } catch (err) {
+        setRunError(String(err.message || err));
+      }
+    },
+    [buildGraphNodes, updateNodeData]
+  );
+
+  // Frozen into node data at creation time (like onDeleteNode) — must read
+  // the graph through refs, not the closed-over `nodes`/`edges` state.
+  const runFromNode = useCallback(
+    (nodeId) => runGraph(nodeId, nodesRef.current, edgesRef.current),
+    [runGraph]
+  );
+
   const widgetHandlers = useMemo(
-    () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode }),
-    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode]
+    () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode, onRunFromHere: runFromNode }),
+    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode, runFromNode]
   );
 
   const combinatorHandlers = useMemo(
@@ -291,8 +365,18 @@ export default function Canvas() {
       onBlockCountChange,
       onBlockInlineFileChange,
       onDeleteNode,
+      onRunFromHere: runFromNode,
     }),
-    [onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange, onDeleteNode]
+    [
+      onParamChange,
+      onFieldFocus,
+      onAddBlock,
+      onRemoveBlock,
+      onBlockCountChange,
+      onBlockInlineFileChange,
+      onDeleteNode,
+      runFromNode,
+    ]
   );
 
   const deleteEdge = useCallback(
@@ -392,54 +476,14 @@ export default function Canvas() {
     ]);
   };
 
-  // How one node's input resolves for the run request — an edge into the
-  // given handle, else whatever's been supplied inline.
-  const resolveInput = (targetHandle, widgetState) => {
-    const edge = edges.find((e) => e.target === widgetState.nodeId && e.targetHandle === targetHandle);
-    if (edge) return { kind: "edge", from: edge.source };
-    if (widgetState.inlineFileBase64) {
-      return { kind: "inline", data_base64: widgetState.inlineFileBase64, name: widgetState.inlineFileName };
-    }
-    if (widgetState.inlineText) return { kind: "inline", text: widgetState.inlineText };
-    return null;
-  };
-
-  const run = async () => {
-    setRunError("");
+  const clearFiles = async () => {
+    await clearAllFiles();
+    setNodes((nds) =>
+      nds.map((n) => ({ ...n, data: { ...n.data, status: undefined, statusLabel: undefined, progress: undefined } }))
+    );
     setRunDone(false);
     setRunId(null);
-    const order = topoSort(nodes, edges);
-    const graphNodes = order.map((id) => {
-      const node = nodes.find((n) => n.id === id);
-      if (node.type === "combinator") {
-        const blocks = (node.data.blocks || []).map((b) => ({
-          input: resolveInput(`block-${b.id}`, { nodeId: id, inlineFileBase64: b.inlineFileBase64, inlineFileName: b.inlineFileName }),
-          count: b.count,
-        }));
-        return { node_id: id, module_id: node.data.moduleId, params: node.data.params, blocks };
-      }
-      const input = resolveInput("in", {
-        nodeId: id,
-        inlineFileBase64: node.data.inlineFileBase64,
-        inlineFileName: node.data.inlineFileName,
-        inlineText: node.data.inlineText,
-      });
-      return { node_id: id, module_id: node.data.moduleId, params: node.data.params, input };
-    });
-
-    try {
-      const { run_id } = await runPipeline({ nodes: graphNodes });
-      setRunId(run_id);
-      subscribeRun(run_id, (update) => {
-        update.nodes.forEach((n) =>
-          updateNodeData(n.node_id, { status: n.status, statusLabel: n.message, progress: n.progress })
-        );
-        if (update.status === "done") setRunDone(true);
-        if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
-      });
-    } catch (err) {
-      setRunError(String(err.message || err));
-    }
+    setRunError("");
   };
 
   return (
@@ -509,11 +553,11 @@ export default function Canvas() {
             ↻
           </button>
           <button
-            onClick={run}
-            disabled={nodes.length === 0}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+            onClick={clearFiles}
+            title="Удалить все сохранённые результаты нод"
+            className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-400 transition hover:border-red-500 hover:text-red-300"
           >
-            ▶ Запустить
+            Очистить файлы
           </button>
           {runDone && runId && (
             <a

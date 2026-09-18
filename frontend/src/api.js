@@ -26,6 +26,12 @@ export async function runPipeline(graph) {
   return r.json();
 }
 
+export async function clearAllFiles() {
+  const r = await fetch("/api/pipeline/clear", { method: "POST" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
 export function subscribeRun(runId, onUpdate) {
   const ws = new WebSocket(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pipeline/ws/${runId}`

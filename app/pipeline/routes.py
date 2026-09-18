@@ -2,11 +2,10 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from fastapi.responses import FileResponse
-from starlette.background import BackgroundTask
 
 from . import s3_store
 from .registry import MODULES
-from .runner import RUNS, GraphRequest, cleanup_run, new_run, run_pipeline
+from .runner import RUNS, GraphRequest, clear_all_results, new_run, run_pipeline
 
 router = APIRouter()
 
@@ -59,16 +58,21 @@ async def ws(run_id: str, sock: WebSocket):
     await sock.close()
 
 
+@router.post("/api/pipeline/clear")
+def clear_files():
+    clear_all_results()
+    return {"ok": True}
+
+
 @router.get("/api/pipeline/{run_id}/file")
 def download_result(run_id: str):
     run = RUNS.get(run_id)
     if not run or run.status != "done" or not run.result or not run.result.exists():
         raise HTTPException(404)
-    return FileResponse(
-        run.result,
-        filename=run.result.name,
-        background=BackgroundTask(cleanup_run, run_id),
-    )
+    # No cleanup on download — the file is now cached until an explicit
+    # "Очистить файлы" or a fresh full run, so re-downloading the same
+    # result works without re-running the pipeline.
+    return FileResponse(run.result, filename=run.result.name)
 
 
 @router.get("/api/pipeline/presets")
