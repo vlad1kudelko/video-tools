@@ -23,6 +23,39 @@ function topoSort(nodes, edges) {
   return order;
 }
 
+// Everything a "run from this node" actually touches: every node it
+// transitively depends on (ancestors, via edges — needed so their cached
+// results can be reused/checked) plus the node itself plus everything
+// downstream of it (which will actually execute). A node with no edge path
+// to or from startId — sitting unconnected elsewhere on the canvas — has no
+// business running just because it happens to exist on the same canvas.
+function subgraphNodeIds(startId, edges) {
+  const keep = new Set([startId]);
+  const visitUp = (id) => {
+    edges
+      .filter((e) => e.target === id)
+      .forEach((e) => {
+        if (!keep.has(e.source)) {
+          keep.add(e.source);
+          visitUp(e.source);
+        }
+      });
+  };
+  const visitDown = (id) => {
+    edges
+      .filter((e) => e.source === id)
+      .forEach((e) => {
+        if (!keep.has(e.target)) {
+          keep.add(e.target);
+          visitDown(e.target);
+        }
+      });
+  };
+  visitUp(startId);
+  visitDown(startId);
+  return keep;
+}
+
 function defaultParams(schema) {
   const out = {};
   Object.entries(schema?.properties || {}).forEach(([k, f]) => {
@@ -323,7 +356,14 @@ export default function Canvas() {
   const runGraph = useCallback(
     async (startFrom, nodeList, edgeList) => {
       setRunError("");
-      const graphNodes = buildGraphNodes(nodeList, edgeList);
+      let scopedNodes = nodeList;
+      let scopedEdges = edgeList;
+      if (startFrom) {
+        const keep = subgraphNodeIds(startFrom, edgeList);
+        scopedNodes = nodeList.filter((n) => keep.has(n.id));
+        scopedEdges = edgeList.filter((e) => keep.has(e.source) && keep.has(e.target));
+      }
+      const graphNodes = buildGraphNodes(scopedNodes, scopedEdges);
       try {
         const { run_id } = await runPipeline({ nodes: graphNodes, start_from: startFrom });
         subscribeRun(run_id, (update) => {

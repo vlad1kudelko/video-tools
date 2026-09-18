@@ -114,12 +114,18 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
     """Strictly sequential — no parallelism. One node at a time, in the order
     the frontend already topologically sorted before sending.
 
-    `graph.start_from`, when set, resumes from that node_id: every node
-    before it is skipped and its cached NODE_RESULTS entry is reused instead
-    (so the graph can be extended and re-run downstream-only, without paying
-    for already-computed upstream steps again). When unset, this is a full
-    fresh run — the current graph's previous cached results are cleared
-    first, exactly like starting over."""
+    `graph.start_from`, when set, marks the node the user actually clicked
+    "run" on — everything before it in the sent order (the frontend already
+    scopes this to just its ancestors, see Canvas.jsx's subgraphNodeIds) is
+    reused from NODE_RESULTS when a valid cache exists, and *computed* when
+    it doesn't (an ancestor that was simply never run yet, e.g. because
+    there's no separate "run everything" action anymore — clicking any node
+    just works, filling in whatever upstream steps are still missing).
+    `graph.start_from` itself, and everything the frontend included after it
+    (its downstream chain), always execute for real, never from cache — that
+    the clicked node re-runs is the whole point of clicking it. When unset,
+    this is a full fresh run — the current graph's previous cached results
+    are cleared first, exactly like starting over."""
     results: dict[str, Path] = {}
     status_map = {n.node_id: NodeStatus(node_id=n.node_id, module_id=n.module_id) for n in graph.nodes}
     run.nodes = list(status_map.values())
@@ -140,13 +146,14 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 started = True
             else:
                 cached = NODE_RESULTS.get(node.node_id)
-                if cached is None or not cached.exists():
-                    st.status, st.message = "error", "нет сохранённого результата — запустите весь граф"
-                    run.status = "error"
-                    return
-                results[node.node_id] = cached
-                st.status, st.progress, st.message = "done", 1.0, "из кэша"
-                continue
+                if cached is not None and cached.exists():
+                    results[node.node_id] = cached
+                    st.status, st.progress, st.message = "done", 1.0, "из кэша"
+                    continue
+                # No cache for this ancestor yet — compute it (and, from here
+                # on, everything downstream too: a descendant's own cache, if
+                # any, was built from this now-stale/missing input).
+                started = True
         manifest = MODULES.get(node.module_id)
         if manifest is None:
             st.status, st.message = "error", f"неизвестный модуль {node.module_id}"

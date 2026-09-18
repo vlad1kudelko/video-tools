@@ -62,7 +62,7 @@ async def _run(job: _Job, data: bytes, name: str) -> None:
             zpath = workdir / f"{Path(name).stem}[filtered].zip"
             with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zout:
                 for i, p in enumerate(ordered):
-                    zout.write(p, f"{i + 1:03d}_{p.name}")
+                    zout.write(p, f"{i + 1:03d}{p.suffix}")
             job.result = zpath
 
         job.message = f"Готово, {len(ordered)} файлов"
