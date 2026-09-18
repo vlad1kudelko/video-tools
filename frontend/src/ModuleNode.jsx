@@ -1,7 +1,7 @@
 import { Handle, Position } from "@xyflow/react";
-import { ParamField, fileToBase64, STATUS_LABELS, STATUS_DOT, portHandleStyle } from "./nodeShared.jsx";
+import { ParamField, fileToBase64, STATUS_LABELS, STATUS_DOT, portHandleStyle, DeleteNodeButton } from "./nodeShared.jsx";
 
-export default function ModuleNode({ id, data }) {
+export default function ModuleNode({ id, data, selected }) {
   const { manifest, params, connected, inlineText, inlineFileName, status, statusLabel } = data;
   const schemaProps = manifest?.params_schema?.properties || {};
 
@@ -13,10 +13,17 @@ export default function ModuleNode({ id, data }) {
   };
 
   return (
-    <div className="w-64 rounded-xl border border-neutral-700 bg-neutral-900 shadow-lg">
+    <div
+      className={`w-64 rounded-xl border bg-neutral-900 shadow-lg ${
+        selected ? "border-indigo-500 ring-2 ring-indigo-500/40" : "border-neutral-700"
+      }`}
+    >
       <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-800 bg-neutral-800/60 px-3 py-2 text-sm font-semibold text-neutral-100">
         <span>{manifest?.label || data.moduleId}</span>
-        {status && <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status] || "bg-neutral-500"}`} />}
+        <div className="flex items-center gap-1.5">
+          {status && <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status] || "bg-neutral-500"}`} />}
+          <DeleteNodeButton onClick={() => data.onDeleteNode?.(id)} />
+        </div>
       </div>
 
       <div className="space-y-3 p-3">

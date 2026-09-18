@@ -58,6 +58,30 @@ export function ParamField({ name, field, value, onChange, onFocus }) {
   );
 }
 
+export function CrossIcon({ size = 9 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
+      <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function DeleteNodeButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title="Удалить ноду"
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-red-600 hover:text-white"
+    >
+      <CrossIcon />
+    </button>
+  );
+}
+
 export async function fileToBase64(file) {
   const buf = await file.arrayBuffer();
   let binary = "";

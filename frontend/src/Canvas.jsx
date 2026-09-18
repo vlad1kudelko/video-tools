@@ -223,16 +223,6 @@ export default function Canvas() {
     [updateBlocks]
   );
 
-  const widgetHandlers = useMemo(
-    () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus }),
-    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus]
-  );
-
-  const combinatorHandlers = useMemo(
-    () => ({ onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange }),
-    [onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange]
-  );
-
   // Connecting an edge disables the node's own inline widget; disconnecting
   // resets it to empty — it never held a value of its own while the edge
   // was supplying one, so there's nothing to restore. For a Combinator node
@@ -263,6 +253,45 @@ export default function Canvas() {
       else updateNodeData(edge.target, { inlineText: "", inlineFileBase64: null, inlineFileName: null });
     },
     [resetBlockInput, updateNodeData]
+  );
+
+  // Explicit × button on the node itself — the alternative to relying on
+  // "select node, then press Backspace", which deletes the whole node
+  // silently since nothing here visually marks a node as selected beyond a
+  // faint ring. Also cleans up any edges touching this node and resets the
+  // widget on the far end of any edge this node was feeding.
+  const onDeleteNode = useCallback(
+    (nodeId) => {
+      commit();
+      // Read via ref, not the closed-over `edges` — this handler is frozen
+      // into node data at creation time (same reason `commit` needed a ref).
+      edgesRef.current
+        .filter((e) => e.source === nodeId || e.target === nodeId)
+        .forEach((e) => {
+          if (e.target !== nodeId) resetEdgeTarget(e);
+        });
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    },
+    [commit, setEdges, setNodes, resetEdgeTarget]
+  );
+
+  const widgetHandlers = useMemo(
+    () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode }),
+    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode]
+  );
+
+  const combinatorHandlers = useMemo(
+    () => ({
+      onParamChange,
+      onFieldFocus,
+      onAddBlock,
+      onRemoveBlock,
+      onBlockCountChange,
+      onBlockInlineFileChange,
+      onDeleteNode,
+    }),
+    [onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange, onDeleteNode]
   );
 
   const deleteEdge = useCallback(
