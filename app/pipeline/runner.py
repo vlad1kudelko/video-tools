@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from .manifest import PipelineInput
+from .manifest import BlockInput, PipelineInput
 from .registry import MODULES
 
 POLL_SECONDS = 0.25
@@ -36,7 +36,8 @@ class GraphNode(BaseModel):
     node_id: str
     module_id: str
     params: dict = {}
-    input: dict | None = None  # {"kind": "inline"|"edge", ...} — see _resolve_input
+    input: dict | None = None  # {"kind": "inline"|"edge", ...} — see _resolve_input_dict
+    blocks: list[dict] | None = None  # [{"input": {...same shape as `input`...}, "count": int}] — block-input modules only
 
 
 class GraphRequest(BaseModel):
@@ -49,20 +50,22 @@ def new_run() -> PipelineRun:
     return run
 
 
-def _resolve_input(node: GraphNode, results: dict[str, Path]) -> PipelineInput | None:
-    if not node.input:
+def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
+    """Shared by a node's single `input` and each block's own `input` in
+    `blocks` — same {"kind": "inline"|"edge", ...} shape either way."""
+    if not input_dict:
         return None
-    kind = node.input.get("kind")
+    kind = input_dict.get("kind")
     if kind == "inline":
-        text = node.input.get("text")
+        text = input_dict.get("text")
         if text:
             return PipelineInput(name="input.txt", text=text)
-        b64 = node.input.get("data_base64")
+        b64 = input_dict.get("data_base64")
         if b64:
-            return PipelineInput(name=node.input.get("name") or "input", data=base64.b64decode(b64))
+            return PipelineInput(name=input_dict.get("name") or "input", data=base64.b64decode(b64))
         return None
     if kind == "edge":
-        src_id = node.input.get("from")
+        src_id = input_dict.get("from")
         src_path = results.get(src_id)
         if src_path is None:
             raise RuntimeError(f"нет результата у узла {src_id}")
@@ -88,9 +91,18 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             return
         try:
             params = manifest.params_model.model_validate(node.params)
-            inp = _resolve_input(node, results)
             st.status = "processing"
-            job = await manifest.start(inp, params)
+            if manifest.block_input is not None:
+                blocks = [
+                    BlockInput(input=_resolve_input_dict(b.get("input"), results), count=max(1, int(b.get("count", 1))))
+                    for b in (node.blocks or [])
+                ]
+                if not blocks:
+                    raise RuntimeError("нужен хотя бы один блок")
+                job = await manifest.start(blocks, params)
+            else:
+                inp = _resolve_input_dict(node.input, results)
+                job = await manifest.start(inp, params)
             while job.status == "processing":
                 st.message = job.message
                 await asyncio.sleep(POLL_SECONDS)

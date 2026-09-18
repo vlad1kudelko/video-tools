@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, Controls, addEdge, useEdgesState, useNodesState } from "@xyflow/react";
 import ModuleNode from "./ModuleNode.jsx";
+import CombinatorNode from "./CombinatorNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { listModules, runPipeline, subscribeRun } from "./api.js";
+import { PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
@@ -26,6 +28,16 @@ function defaultParams(schema) {
     out[k] = f.default;
   });
   return out;
+}
+
+function newBlockId() {
+  return `blk-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// "block-<id>" target handles belong to a Combinator node's individual
+// blocks; a plain "in" handle belongs to a regular single-input node.
+function blockIdFromHandle(handle) {
+  return handle && handle.startsWith("block-") ? handle.slice("block-".length) : null;
 }
 
 // Same 6 entries, same order and numbering as the old per-module sidebar
@@ -53,35 +65,50 @@ export default function Canvas() {
   // right before any state-changing action to record what to go back to —
   // node objects are always replaced (never mutated in place) by every
   // updater below, so a shallow snapshot of the arrays is enough.
+  //
+  // `commit` gets frozen into node `data` at node-creation time (block-add,
+  // field-focus handlers live there) and node data is never wholesale
+  // replaced afterward — so a version of `commit` that closes over `nodes`/
+  // `edges` directly would keep reading whatever those were AT CREATION
+  // TIME, not the current state. Reading through a ref instead makes
+  // `commit` referentially stable (created once) and always correct.
   const [past, setPast] = useState([]);
   const [future, setFuture] = useState([]);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   const commit = useCallback(() => {
-    setPast((p) => [...p, { nodes, edges }]);
+    setPast((p) => [...p, { nodes: nodesRef.current, edges: edgesRef.current }]);
     setFuture([]);
-  }, [nodes, edges]);
+  }, []);
 
   const undo = useCallback(() => {
     setPast((p) => {
       if (p.length === 0) return p;
       const prev = p[p.length - 1];
-      setFuture((f) => [{ nodes, edges }, ...f]);
+      setFuture((f) => [{ nodes: nodesRef.current, edges: edgesRef.current }, ...f]);
       setNodes(prev.nodes);
       setEdges(prev.edges);
       return p.slice(0, -1);
     });
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [setNodes, setEdges]);
 
   const redo = useCallback(() => {
     setFuture((f) => {
       if (f.length === 0) return f;
       const next = f[0];
-      setPast((p) => [...p, { nodes, edges }]);
+      setPast((p) => [...p, { nodes: nodesRef.current, edges: edgesRef.current }]);
       setNodes(next.nodes);
       setEdges(next.edges);
       return f.slice(1);
     });
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [setNodes, setEdges]);
 
   // Ctrl+Z / Ctrl+Shift+Z (and Ctrl+Y) for the canvas — skipped while a text
   // field has focus so the browser's own native undo inside that field keeps
@@ -142,17 +169,86 @@ export default function Canvas() {
     [updateNodeData]
   );
 
+  // Block-list handlers — only Combinator nodes use these.
+  const updateBlocks = useCallback(
+    (nodeId, fn) => {
+      setNodes((nds) =>
+        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, blocks: fn(n.data.blocks || []) } } : n))
+      );
+    },
+    [setNodes]
+  );
+
+  const onAddBlock = useCallback(
+    (nodeId) => {
+      commit();
+      updateBlocks(nodeId, (blocks) => [
+        ...blocks,
+        { id: newBlockId(), count: 1, inlineFileBase64: null, inlineFileName: null, connected: false },
+      ]);
+    },
+    [commit, updateBlocks]
+  );
+
+  const onRemoveBlock = useCallback(
+    (nodeId, blockId) => {
+      commit();
+      updateBlocks(nodeId, (blocks) => (blocks.length > 1 ? blocks.filter((b) => b.id !== blockId) : blocks));
+    },
+    [commit, updateBlocks]
+  );
+
+  const onBlockCountChange = useCallback(
+    (nodeId, blockId, count) => {
+      updateBlocks(nodeId, (blocks) => blocks.map((b) => (b.id === blockId ? { ...b, count } : b)));
+    },
+    [updateBlocks]
+  );
+
+  const onBlockInlineFileChange = useCallback(
+    (nodeId, blockId, base64, name) => {
+      updateBlocks(nodeId, (blocks) =>
+        blocks.map((b) => (b.id === blockId ? { ...b, inlineFileBase64: base64, inlineFileName: name } : b))
+      );
+    },
+    [updateBlocks]
+  );
+
+  const resetBlockInput = useCallback(
+    (nodeId, blockId) => {
+      updateBlocks(nodeId, (blocks) =>
+        blocks.map((b) => (b.id === blockId ? { ...b, inlineFileBase64: null, inlineFileName: null } : b))
+      );
+    },
+    [updateBlocks]
+  );
+
   const widgetHandlers = useMemo(
     () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus }),
     [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus]
   );
 
+  const combinatorHandlers = useMemo(
+    () => ({ onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange }),
+    [onParamChange, onFieldFocus, onAddBlock, onRemoveBlock, onBlockCountChange, onBlockInlineFileChange]
+  );
+
   // Connecting an edge disables the node's own inline widget; disconnecting
   // resets it to empty — it never held a value of its own while the edge
-  // was supplying one, so there's nothing to restore.
+  // was supplying one, so there's nothing to restore. For a Combinator node
+  // this applies per-block, keyed by which "block-<id>" handle the edge targets.
   useEffect(() => {
     setNodes((nds) =>
-      nds.map((n) => ({ ...n, data: { ...n.data, connected: edges.some((e) => e.target === n.id) } }))
+      nds.map((n) => {
+        if (n.type === "combinator") {
+          const blocks = (n.data.blocks || []).map((b) => ({
+            ...b,
+            connected: edges.some((e) => e.target === n.id && e.targetHandle === `block-${b.id}`),
+          }));
+          return { ...n, data: { ...n.data, blocks } };
+        }
+        return { ...n, data: { ...n.data, connected: edges.some((e) => e.target === n.id) } };
+      })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edges]);
@@ -160,30 +256,29 @@ export default function Canvas() {
   // Shared by both ways an edge can go away: pressing Backspace/Delete on a
   // selected edge (native React Flow interaction, via onEdgesChange below)
   // and clicking the small × button rendered on the edge itself (DeletableEdge).
-  const resetNodeInput = useCallback(
-    (nodeId) => updateNodeData(nodeId, { inlineText: "", inlineFileBase64: null, inlineFileName: null }),
-    [updateNodeData]
+  const resetEdgeTarget = useCallback(
+    (edge) => {
+      const blockId = blockIdFromHandle(edge.targetHandle);
+      if (blockId) resetBlockInput(edge.target, blockId);
+      else updateNodeData(edge.target, { inlineText: "", inlineFileBase64: null, inlineFileName: null });
+    },
+    [resetBlockInput, updateNodeData]
   );
 
   const deleteEdge = useCallback(
     (edgeId) => {
       commit();
       const edge = edges.find((e) => e.id === edgeId);
-      if (edge) resetNodeInput(edge.target);
+      if (edge) resetEdgeTarget(edge);
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
     },
-    [commit, edges, setEdges, resetNodeInput]
+    [commit, edges, setEdges, resetEdgeTarget]
   );
 
   const onConnect = useCallback(
     (connection) => {
       commit();
-      setEdges((eds) =>
-        addEdge(
-          { ...connection, targetHandle: "in", sourceHandle: "out", type: "deletable", data: { onDelete: deleteEdge } },
-          eds
-        )
-      );
+      setEdges((eds) => addEdge({ ...connection, type: "deletable", data: { onDelete: deleteEdge } }, eds));
     },
     [commit, setEdges, deleteEdge]
   );
@@ -193,11 +288,11 @@ export default function Canvas() {
       const removedIds = changes.filter((c) => c.type === "remove").map((c) => c.id);
       if (removedIds.length) {
         commit();
-        edges.filter((e) => removedIds.includes(e.id)).forEach((e) => resetNodeInput(e.target));
+        edges.filter((e) => removedIds.includes(e.id)).forEach(resetEdgeTarget);
       }
       onEdgesChangeRaw(changes);
     },
-    [commit, edges, onEdgesChangeRaw, resetNodeInput]
+    [commit, edges, onEdgesChangeRaw, resetEdgeTarget]
   );
 
   // A node drag is one undo step from pickup to drop — commit once at drag
@@ -217,8 +312,11 @@ export default function Canvas() {
       const source = nodes.find((n) => n.id === connection.source);
       const target = nodes.find((n) => n.id === connection.target);
       if (!source || !target) return false;
-      if (edges.some((e) => e.target === target.id)) return false; // one edge per input port
-      return source.data.manifest?.output_port === target.data.manifest?.input_port;
+      // One edge per input port — for a Combinator block that means per
+      // block handle, not per whole node (it can legitimately have several).
+      if (edges.some((e) => e.target === target.id && e.targetHandle === connection.targetHandle)) return false;
+      const targetPortType = target.type === "combinator" ? target.data.manifest?.block_input : target.data.manifest?.input_port;
+      return source.data.manifest?.output_port === targetPortType;
     },
     [nodes, edges]
   );
@@ -228,12 +326,31 @@ export default function Canvas() {
     if (!manifest) return;
     commit();
     const id = `${moduleId}-${Date.now()}`;
+    const position = { x: 80 + (nodes.length % 4) * 260, y: 100 + Math.floor(nodes.length / 4) * 220 };
+    if (manifest.block_input) {
+      setNodes((nds) => [
+        ...nds,
+        {
+          id,
+          type: "combinator",
+          position,
+          data: {
+            moduleId,
+            manifest,
+            params: defaultParams(manifest.params_schema),
+            blocks: [{ id: newBlockId(), count: 1, inlineFileBase64: null, inlineFileName: null, connected: false }],
+            ...combinatorHandlers,
+          },
+        },
+      ]);
+      return;
+    }
     setNodes((nds) => [
       ...nds,
       {
         id,
         type: "module",
-        position: { x: 80 + (nds.length % 4) * 260, y: 100 + Math.floor(nds.length / 4) * 220 },
+        position,
         data: {
           moduleId,
           manifest,
@@ -245,6 +362,18 @@ export default function Canvas() {
     ]);
   };
 
+  // How one node's input resolves for the run request — an edge into the
+  // given handle, else whatever's been supplied inline.
+  const resolveInput = (targetHandle, widgetState) => {
+    const edge = edges.find((e) => e.target === widgetState.nodeId && e.targetHandle === targetHandle);
+    if (edge) return { kind: "edge", from: edge.source };
+    if (widgetState.inlineFileBase64) {
+      return { kind: "inline", data_base64: widgetState.inlineFileBase64, name: widgetState.inlineFileName };
+    }
+    if (widgetState.inlineText) return { kind: "inline", text: widgetState.inlineText };
+    return null;
+  };
+
   const run = async () => {
     setRunError("");
     setRunDone(false);
@@ -252,15 +381,19 @@ export default function Canvas() {
     const order = topoSort(nodes, edges);
     const graphNodes = order.map((id) => {
       const node = nodes.find((n) => n.id === id);
-      const edge = edges.find((e) => e.target === id);
-      let input = null;
-      if (edge) {
-        input = { kind: "edge", from: edge.source };
-      } else if (node.data.inlineFileBase64) {
-        input = { kind: "inline", data_base64: node.data.inlineFileBase64, name: node.data.inlineFileName };
-      } else if (node.data.inlineText) {
-        input = { kind: "inline", text: node.data.inlineText };
+      if (node.type === "combinator") {
+        const blocks = (node.data.blocks || []).map((b) => ({
+          input: resolveInput(`block-${b.id}`, { nodeId: id, inlineFileBase64: b.inlineFileBase64, inlineFileName: b.inlineFileName }),
+          count: b.count,
+        }));
+        return { node_id: id, module_id: node.data.moduleId, params: node.data.params, blocks };
       }
+      const input = resolveInput("in", {
+        nodeId: id,
+        inlineFileBase64: node.data.inlineFileBase64,
+        inlineFileName: node.data.inlineFileName,
+        inlineText: node.data.inlineText,
+      });
       return { node_id: id, module_id: node.data.moduleId, params: node.data.params, input };
     });
 
@@ -279,7 +412,7 @@ export default function Canvas() {
 
   return (
     <div className="flex h-full flex-col bg-neutral-950 text-neutral-100 md:flex-row">
-      <aside className="shrink-0 border-b border-neutral-800 md:w-56 md:border-b-0 md:border-r">
+      <aside className="flex shrink-0 flex-col border-b border-neutral-800 md:h-full md:w-56 md:border-b-0 md:border-r">
         <div className="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO TOOLS</div>
         <nav className="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
           {SIDEBAR_ITEMS.map((item, i) => {
@@ -304,6 +437,25 @@ export default function Canvas() {
             );
           })}
         </nav>
+        <div className="mt-auto border-t border-neutral-800 px-5 py-3">
+          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600">Типы портов</div>
+          <div className="space-y-1">
+            {PORT_LEGEND.map((p) => (
+              <div key={p.type} className="flex items-center gap-2 text-xs text-neutral-400">
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    background: p.color,
+                    borderRadius: p.shape === "square" ? 2 : 9999,
+                  }}
+                />
+                <span>{p.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

@@ -17,6 +17,15 @@ class PipelineInput:
     data: bytes | None = None
 
 
+@dataclass
+class BlockInput:
+    """One block of a dynamic block-list input (only "Комбинатор" uses this
+    today) — a PipelineInput plus its own repeat count."""
+
+    input: PipelineInput
+    count: int
+
+
 class JobLike(Protocol):
     """Every module's existing Job dataclass already has this shape — the
     runner polls it exactly the way each module's own WS handler already
@@ -33,8 +42,15 @@ class ModuleManifest:
     label: str
     params_model: type[BaseModel]
     output_port: PortType
-    input_port: PortType | None
     # Kicks off the module's own existing job machinery (new_job() +
     # asyncio.create_task(run_*)) exactly like its routes.py does today, and
     # returns the live job object.
-    start: Callable[[PipelineInput | None, BaseModel], Awaitable[JobLike]]
+    start: Callable[..., Awaitable[JobLike]]
+    # A node declares EITHER input_port (single input, most modules) OR
+    # block_input (a dynamic list of same-typed blocks, "Комбинатор" only) —
+    # never both. `start`'s signature follows: single-input modules take
+    # (PipelineInput | None, params); block-input modules take
+    # (list[BlockInput], params). The runner picks the calling convention by
+    # checking which of these two is set.
+    input_port: PortType | None = None
+    block_input: PortType | None = None

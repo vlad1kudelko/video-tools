@@ -19,6 +19,7 @@ def list_modules():
             "label": m.label,
             "params_schema": m.params_model.model_json_schema(),
             "input_port": m.input_port.value if m.input_port else None,
+            "block_input": m.block_input.value if m.block_input else None,
             "output_port": m.output_port.value,
         }
         for m in MODULES.values()
