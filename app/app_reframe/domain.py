@@ -7,11 +7,16 @@ class Job:
     id: str
     total: int
     done: int = 0
-    progress: float = 0.0
+    current_progress: float = 0.0  # 0..1 progress of the file currently being encoded
+    progress: float = 0.0  # overall fraction across all files, (done + current_progress) / total — external consumers (pipeline, WS) read this uniformly
     status: str = "processing"  # processing | done | error
     message: str = ""
     result: Path | None = None
     is_zip: bool = False
+
+
+def sync_progress(job: "Job") -> None:
+    job.progress = min((job.done + job.current_progress) / job.total, 1.0) if job.total else 0.0
 
 
 CROP_XY = {

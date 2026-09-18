@@ -55,7 +55,7 @@ export function ReframeTab() {
       if (j.status === "processing") {
         setStatus({
           text: `Обработка ${Math.min(j.done + 1, j.total)} / ${j.total}`,
-          pct: combinedPct(1, (j.done + j.progress) / j.total),
+          pct: combinedPct(1, j.progress),
         });
       } else if (j.status === "done") {
         setStatus({ text: "Готово", pct: 100 });

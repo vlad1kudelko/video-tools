@@ -150,6 +150,32 @@ export function NodeProgressBar({ status, progress }) {
   );
 }
 
+// Shared by all three node types — the progress bar plus a status line that,
+// once the node is done, also carries a link to download just that node's
+// own result (replaces the one general "Скачать результат" that used to sit
+// in the toolbar — any node can be a run's endpoint now, not just the last one).
+export function NodeStatusFooter({ nodeId, status, statusLabel, progress }) {
+  if (!status) return null;
+  return (
+    <>
+      <NodeProgressBar status={status} progress={progress} />
+      <div className="flex items-center justify-between gap-2 rounded-b-xl border-t border-neutral-800 px-3 py-1.5 text-xs text-neutral-400">
+        <span className="truncate">{statusLabel || STATUS_LABELS[status] || status}</span>
+        {status === "done" && (
+          <a
+            href={`/api/pipeline/node/${nodeId}/file`}
+            onClick={(e) => e.stopPropagation()}
+            title="Скачать результат этой ноды"
+            className="shrink-0 rounded-md border border-emerald-600/50 bg-emerald-600/10 px-2 py-0.5 text-emerald-300 transition hover:bg-emerald-600/20"
+          >
+            ⬇ Скачать
+          </a>
+        )}
+      </div>
+    </>
+  );
+}
+
 // One color+shape per port type, applied to every connector dot (Handle) so
 // compatibility is visible at a glance, not just enforced silently inside
 // isValidConnection. Shape carries "single item vs. list" (circle vs.

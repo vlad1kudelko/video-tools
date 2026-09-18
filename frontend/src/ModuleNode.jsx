@@ -2,11 +2,10 @@ import { Handle, Position } from "@xyflow/react";
 import {
   ParamField,
   fileToBase64,
-  STATUS_LABELS,
   portHandleStyle,
   DeleteNodeButton,
   NodeStatusDot,
-  NodeProgressBar,
+  NodeStatusFooter,
 } from "./nodeShared.jsx";
 
 export default function ModuleNode({ id, data, selected }) {
@@ -77,14 +76,7 @@ export default function ModuleNode({ id, data, selected }) {
         <Handle type="source" position={Position.Right} id="out" style={portHandleStyle(manifest.output_port)} />
       )}
 
-      {status && (
-        <>
-          <NodeProgressBar status={status} progress={progress} />
-          <div className="rounded-b-xl border-t border-neutral-800 px-3 py-1.5 text-xs text-neutral-400">
-            {statusLabel || STATUS_LABELS[status] || status}
-          </div>
-        </>
-      )}
+      <NodeStatusFooter nodeId={id} status={status} statusLabel={statusLabel} progress={progress} />
     </div>
   );
 }

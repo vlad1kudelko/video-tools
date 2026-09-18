@@ -59,8 +59,6 @@ export default function Canvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState([]);
   const [runError, setRunError] = useState("");
-  const [runId, setRunId] = useState(null);
-  const [runDone, setRunDone] = useState(false);
 
   // Undo/redo: a stack of {nodes, edges} snapshots. `commit()` is called
   // right before any state-changing action to record what to go back to —
@@ -324,17 +322,13 @@ export default function Canvas() {
   const runGraph = useCallback(
     async (startFrom, nodeList, edgeList) => {
       setRunError("");
-      setRunDone(false);
-      setRunId(null);
       const graphNodes = buildGraphNodes(nodeList, edgeList);
       try {
         const { run_id } = await runPipeline({ nodes: graphNodes, start_from: startFrom });
-        setRunId(run_id);
         subscribeRun(run_id, (update) => {
           update.nodes.forEach((n) =>
             updateNodeData(n.node_id, { status: n.status, statusLabel: n.message, progress: n.progress })
           );
-          if (update.status === "done") setRunDone(true);
           if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
         });
       } catch (err) {
@@ -481,8 +475,6 @@ export default function Canvas() {
     setNodes((nds) =>
       nds.map((n) => ({ ...n, data: { ...n.data, status: undefined, statusLabel: undefined, progress: undefined } }))
     );
-    setRunDone(false);
-    setRunId(null);
     setRunError("");
   };
 
@@ -559,18 +551,6 @@ export default function Canvas() {
           >
             Очистить файлы
           </button>
-          {runDone && runId && (
-            <a
-              href={`/api/pipeline/${runId}/file`}
-              onClick={() => {
-                setRunDone(false);
-                setRunId(null);
-              }}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
-            >
-              ⬇ Скачать результат
-            </a>
-          )}
           {runError && <span className="text-sm text-red-400">{runError}</span>}
         </div>
         <div className="flex-1">

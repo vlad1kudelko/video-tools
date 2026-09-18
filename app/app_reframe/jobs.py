@@ -4,7 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ..config import TMP
-from .domain import Job
+from .domain import Job, sync_progress
 from .ffmpeg import run_ffmpeg
 from .media import classify_media
 
@@ -36,11 +36,14 @@ async def process_job(job: Job, payload: list[tuple[str, bytes]], vf: str, suffi
             src = workdir / f"in{i}{Path(name).suffix}"
             src.write_bytes(data)
             dst = workdir / f"{Path(name).stem or 'media'}_{suffix}.mp4"
-            job.progress = 0.0
+            job.current_progress = 0.0
+            job.message = f"{i + 1} / {job.total} файлов"
+            sync_progress(job)
             await _reframe_one(src, dst, vf, duration, job)
             src.unlink(missing_ok=True)
             outs.append(dst)
             job.done = i + 1
+            sync_progress(job)
         if len(outs) == 1:
             job.result, job.is_zip = outs[0], False
         else:
@@ -77,6 +80,7 @@ async def process_archive_job(job: Job, zip_bytes: bytes, original_name: str, vf
             rel = info.filename
             src = extract_dir / rel
             kind = classify_media(rel)
+            job.message = f"{i + 1} / {job.total} файлов"
             if kind is None:
                 dst = out_dir / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
@@ -84,9 +88,11 @@ async def process_archive_job(job: Job, zip_bytes: bytes, original_name: str, vf
             else:
                 dst = (out_dir / rel).with_suffix(".mp4")
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                job.progress = 0.0
+                job.current_progress = 0.0
+                sync_progress(job)
                 await _reframe_one(src, dst, vf, duration, job)
             job.done = i + 1
+            sync_progress(job)
 
         stem = Path(original_name).stem
         zpath = workdir / f"{stem}[reframe].zip"

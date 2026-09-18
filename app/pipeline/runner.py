@@ -27,7 +27,6 @@ class PipelineRun:
     id: str
     nodes: list[NodeStatus] = field(default_factory=list)
     status: str = "processing"  # processing | done | error
-    result: Path | None = None  # last node's output — the whole run's deliverable
 
 
 RUNS: dict[str, PipelineRun] = {}
@@ -147,7 +146,6 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                     return
                 results[node.node_id] = cached
                 st.status, st.progress, st.message = "done", 1.0, "из кэша"
-                run.result = cached
                 continue
         manifest = MODULES.get(node.module_id)
         if manifest is None:
@@ -181,7 +179,6 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             st.progress = 1.0
             results[node.node_id] = job.result
             _set_node_result(node.node_id, job.result)
-            run.result = job.result
         except Exception as exc:  # noqa: BLE001
             st.status, st.message = "error", str(exc)
             run.status = "error"

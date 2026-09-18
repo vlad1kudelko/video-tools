@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from . import s3_store
 from .registry import MODULES
-from .runner import RUNS, GraphRequest, clear_all_results, new_run, run_pipeline
+from .runner import NODE_RESULTS, RUNS, GraphRequest, clear_all_results, new_run, run_pipeline
 
 router = APIRouter()
 
@@ -64,15 +64,17 @@ def clear_files():
     return {"ok": True}
 
 
-@router.get("/api/pipeline/{run_id}/file")
-def download_result(run_id: str):
-    run = RUNS.get(run_id)
-    if not run or run.status != "done" or not run.result or not run.result.exists():
+@router.get("/api/pipeline/node/{node_id}/file")
+def download_node_result(node_id: str):
+    # Keyed by node_id (not run_id) so any node that has ever completed —
+    # not just a run's final one — is downloadable, matching "run from any
+    # node" being a first-class action now. No cleanup on download — the
+    # file stays cached until an explicit "Очистить файлы" or a fresh full
+    # run, so re-downloading the same result works without re-running.
+    path = NODE_RESULTS.get(node_id)
+    if not path or not path.exists():
         raise HTTPException(404)
-    # No cleanup on download — the file is now cached until an explicit
-    # "Очистить файлы" or a fresh full run, so re-downloading the same
-    # result works without re-running the pipeline.
-    return FileResponse(run.result, filename=run.result.name)
+    return FileResponse(path, filename=path.name)
 
 
 @router.get("/api/pipeline/presets")

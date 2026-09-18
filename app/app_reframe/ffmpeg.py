@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from .domain import Job
+from .domain import Job, sync_progress
 
 
 async def probe_duration(src: Path) -> float:
@@ -38,10 +38,12 @@ async def run_ffmpeg(src: Path, dst: Path, vf: str, job: Job, image_duration: fl
         if line.startswith("out_time=") and dur:
             try:
                 hh, mm, ss = line.split("=", 1)[1].split(":")
-                job.progress = min((int(hh) * 3600 + int(mm) * 60 + float(ss)) / dur, 1.0)
+                job.current_progress = min((int(hh) * 3600 + int(mm) * 60 + float(ss)) / dur, 1.0)
+                sync_progress(job)
             except ValueError:
                 pass
     await proc.wait()
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {src.name}")
-    job.progress = 1.0
+    job.current_progress = 1.0
+    sync_progress(job)
