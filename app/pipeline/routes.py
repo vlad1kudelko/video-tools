@@ -87,3 +87,8 @@ def get_graph():
     if data is None:
         raise HTTPException(404)
     return data
+
+
+@router.get("/api/pipeline/s3-files")
+def list_s3_files():
+    return s3_store.list_files()

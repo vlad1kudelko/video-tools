@@ -37,3 +37,32 @@ def get_graph() -> dict | None:
     except client.exceptions.NoSuchKey:
         return None
     return json.loads(body)
+
+
+def list_files() -> list[dict]:
+    """Every object in the bucket except the app's own "system/" housekeeping
+    (saved graph, combinator usage log) — i.e. whatever the user has uploaded
+    through the hoster's own S3 admin panel, available to pick from a
+    pipeline node."""
+    client = _s3()
+    files = []
+    token = None
+    while True:
+        kwargs = {"Bucket": S3_BUCKET}
+        if token:
+            kwargs["ContinuationToken"] = token
+        resp = client.list_objects_v2(**kwargs)
+        for obj in resp.get("Contents", []):
+            key = obj["Key"]
+            if key.startswith("system/") or key.endswith("/"):
+                continue
+            files.append({"key": key, "name": key.rsplit("/", 1)[-1], "size": obj["Size"]})
+        if not resp.get("IsTruncated"):
+            break
+        token = resp.get("NextContinuationToken")
+    files.sort(key=lambda f: f["key"])
+    return files
+
+
+def get_object(key: str) -> bytes:
+    return _s3().get_object(Bucket=S3_BUCKET, Key=key)["Body"].read()

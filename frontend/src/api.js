@@ -19,6 +19,12 @@ export async function loadGraph() {
   return r.json();
 }
 
+export async function listS3Files() {
+  const r = await fetch("/api/pipeline/s3-files");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
 export async function runPipeline(graph) {
   const r = await fetch("/api/pipeline/run", {
     method: "POST",

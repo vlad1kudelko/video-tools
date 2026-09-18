@@ -101,7 +101,7 @@ async def _run(job: _PipelineJob, repo_url: str) -> None:
         out_path.write_text("\n".join(f"{it.url} -> {size}" for it, size in ranked) + "\n", encoding="utf-8")
 
         job.result = out_path
-        job.message = f"Готово, найдено {len(ranked)}"
+        job.message = f"найдено {len(ranked)}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)

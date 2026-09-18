@@ -39,8 +39,8 @@ register(ModuleManifest(
     id="reframe",
     label="Кадрирование",
     params_model=ReframeParams,
-    input_port=PortType.VIDEO_FILE_LIST,
-    output_port=PortType.VIDEO_FILE_LIST,
+    input_port=PortType.FILE_LIST,
+    output_port=PortType.FILE_LIST,
     start=_start,
     description=[
         "Приводит видео и фото к заданному размеру (ширина × высота)",

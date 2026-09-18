@@ -191,7 +191,7 @@ export function NodeStatusFooter({ nodeId, status, statusLabel, progress }) {
 export const PORT_LEGEND = [
   { type: "text_file", color: "#f59e0b", shape: "circle", label: "текст" },
   { type: "video_file", color: "#38bdf8", shape: "circle", label: "видео" },
-  { type: "video_file_list", color: "#a855f7", shape: "square", label: "список видео" },
+  { type: "file_list", color: "#a855f7", shape: "square", label: "список файлов" },
 ];
 
 const PORT_BY_TYPE = Object.fromEntries(PORT_LEGEND.map((p) => [p.type, p]));

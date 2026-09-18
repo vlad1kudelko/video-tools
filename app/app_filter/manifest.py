@@ -69,7 +69,7 @@ async def _run(job: _Job, data: bytes, name: str, params: FilterParams) -> None:
                     zout.write(p, f"{i + 1:03d}{p.suffix}")
             job.result = zpath
 
-        job.message = f"Готово, {len(ordered)} файлов"
+        job.message = f"отфильтровано {len(ordered)}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)
@@ -88,8 +88,8 @@ register(ModuleManifest(
     id="filter",
     label="Фильтрование",
     params_model=FilterParams,
-    input_port=PortType.VIDEO_FILE_LIST,
-    output_port=PortType.VIDEO_FILE_LIST,
+    input_port=PortType.FILE_LIST,
+    output_port=PortType.FILE_LIST,
     start=_start,
     description=[
         "Сортирует список файлов по разрешению кадра и по размеру — по убыванию",

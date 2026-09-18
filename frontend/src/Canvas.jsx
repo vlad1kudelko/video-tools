@@ -3,11 +3,12 @@ import { ReactFlow, Background, Controls, addEdge, useEdgesState, useNodesState 
 import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
+import S3FileNode from "./S3FileNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { clearAllFiles, listModules, loadGraph, runPipeline, saveGraph, subscribeRun } from "./api.js";
 import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, s3file: S3FileNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
@@ -73,6 +74,7 @@ function blockIdFromHandle(handle) {
 // Modules without a pipeline manifest yet show up disabled instead of vanishing.
 const SIDEBAR_ITEMS = [
   { id: "materials", fallbackLabel: "Материалы" },
+  { id: "s3file", fallbackLabel: "Файл из S3" },
   { id: "download", fallbackLabel: "Скачивание медиа" },
   { id: "filter", fallbackLabel: "Фильтрование" },
   { id: "record", fallbackLabel: "Запись экрана" },
@@ -333,7 +335,13 @@ export default function Canvas() {
         const { run_id } = await runPipeline({ nodes: graphNodes, start_from: startFrom });
         subscribeRun(run_id, (update) => {
           update.nodes.forEach((n) =>
-            updateNodeData(n.node_id, { status: n.status, statusLabel: n.message, progress: n.progress })
+            // An empty message (e.g. a cache-served node) must not blank out
+            // whatever result text is already showing from a previous run.
+            updateNodeData(n.node_id, {
+              status: n.status,
+              progress: n.progress,
+              ...(n.message ? { statusLabel: n.message } : {}),
+            })
           );
           if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
         });

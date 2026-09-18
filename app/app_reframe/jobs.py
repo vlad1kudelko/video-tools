@@ -56,6 +56,7 @@ async def process_job(job: Job, payload: list[tuple[str, bytes]], vf: str, suffi
                 for o in outs:
                     z.write(o, o.name)
             job.result, job.is_zip = zpath, True
+        job.message = f"обработано {len(outs)}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)
@@ -105,6 +106,7 @@ async def process_archive_job(job: Job, zip_bytes: bytes, original_name: str, vf
                     zout.write(f, f.relative_to(out_dir))
 
         job.result, job.is_zip = zpath, True
+        job.message = f"обработано {job.total}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)

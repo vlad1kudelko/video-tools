@@ -2,6 +2,7 @@ import asyncio
 
 from pydantic import BaseModel
 
+from ..clip_assembly import Transition
 from ..config import TMP
 from ..pipeline.manifest import ModuleManifest, PipelineInput
 from ..pipeline.registry import register
@@ -11,7 +12,7 @@ from .jobs import new_job
 
 
 class ConcatParams(BaseModel):
-    transition: str = "fade"
+    transition: Transition = "fade"
     transition_duration: float = 0.5
 
 
@@ -31,7 +32,7 @@ register(ModuleManifest(
     id="concat",
     label="Склейка видео",
     params_model=ConcatParams,
-    input_port=PortType.VIDEO_FILE_LIST,
+    input_port=PortType.FILE_LIST,
     output_port=PortType.VIDEO_FILE,
     start=_start,
     description=[

@@ -8,4 +8,4 @@ class PortType(str, Enum):
 
     TEXT_FILE = "text_file"
     VIDEO_FILE = "video_file"
-    VIDEO_FILE_LIST = "video_file_list"
+    FILE_LIST = "file_list"

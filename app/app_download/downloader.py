@@ -88,8 +88,8 @@ async def run_download(job: DownloadJob, raw_text: str) -> None:
             z.writestr("links.txt", raw_text)
 
         job.result = zpath
-        failed = job.total - len(saved) - len(skipped_youtube)
-        job.message = "Готово" if failed <= 0 else f"Готово, не удалось скачать: {failed}"
+        skipped = job.total - len(saved)
+        job.message = f"скачано {len(saved)}, пропущено {skipped}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)

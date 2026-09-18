@@ -7,3 +7,4 @@ from ..app_download import manifest as _download_manifest  # noqa: F401
 from ..app_filter import manifest as _filter_manifest  # noqa: F401
 from ..app_materials import manifest as _materials_manifest  # noqa: F401
 from ..app_reframe import manifest as _reframe_manifest  # noqa: F401
+from ..app_s3file import manifest as _s3file_manifest  # noqa: F401

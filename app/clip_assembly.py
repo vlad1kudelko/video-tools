@@ -2,9 +2,23 @@ import asyncio
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol, get_args
 
 from .media_probe import probe
+
+# Same ids as frontend/src/transitions.js's picker, and as ffmpeg's own
+# `xfade` transition names ("none" is our own no-transition shortcut, not
+# an xfade value).
+Transition = Literal[
+    "none", "fade", "wipeleft", "wiperight", "wipeup", "wipedown",
+    "slideleft", "slideright", "slideup", "slidedown", "circlecrop", "rectcrop",
+    "distance", "fadeblack", "fadewhite", "radial", "smoothleft", "smoothright",
+    "smoothup", "smoothdown", "circleopen", "circleclose", "vertopen", "vertclose",
+    "horzopen", "horzclose", "dissolve", "diagtl", "diagtr", "diagbl", "diagbr",
+    "hlslice", "hrslice", "vuslice", "vdslice", "fadegrays", "wipetl", "wipetr",
+    "wipebl", "wipebr", "squeezeh", "squeezev",
+]
+TRANSITIONS: tuple[str, ...] = get_args(Transition)
 
 
 @dataclass

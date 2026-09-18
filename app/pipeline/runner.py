@@ -133,7 +133,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 cached = NODE_RESULTS.get(node.node_id)
                 if cached is not None and cached.exists():
                     results[node.node_id] = cached
-                    st.status, st.progress, st.message = "done", 1.0, "из кэша"
+                    st.status, st.progress = "done", 1.0
                     continue
                 started = True
         manifest = MODULES.get(node.module_id)

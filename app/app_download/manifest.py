@@ -27,7 +27,7 @@ register(ModuleManifest(
     label="Скачивание медиа",
     params_model=DownloadParams,
     input_port=PortType.TEXT_FILE,
-    output_port=PortType.VIDEO_FILE_LIST,
+    output_port=PortType.FILE_LIST,
     start=_start,
     description=[
         "Скачивает файлы по списку ссылок — одна ссылка на строку",

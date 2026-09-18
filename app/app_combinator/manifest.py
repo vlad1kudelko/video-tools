@@ -2,6 +2,7 @@ import asyncio
 
 from pydantic import BaseModel
 
+from ..clip_assembly import Transition
 from ..config import TMP
 from ..pipeline.manifest import BlockInput, ModuleManifest
 from ..pipeline.registry import register
@@ -11,7 +12,7 @@ from .jobs import new_job
 
 
 class CombinatorParams(BaseModel):
-    transition: str = "fade"
+    transition: Transition = "fade"
     transition_duration: float = 0.5
 
 
@@ -39,7 +40,7 @@ register(ModuleManifest(
     id="combinator",
     label="Комбинатор",
     params_model=CombinatorParams,
-    block_input=PortType.VIDEO_FILE_LIST,
+    block_input=PortType.FILE_LIST,
     output_port=PortType.VIDEO_FILE,
     start=_start,
     description=[

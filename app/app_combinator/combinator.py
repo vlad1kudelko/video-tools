@@ -42,7 +42,7 @@ async def run_generate(
         record_usage([p.name for p in picks])
 
         job.result = out_path
-        job.message = "Готово"
+        job.message = f"собрано {len(picks)}"
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         job.status, job.message = "error", str(exc)

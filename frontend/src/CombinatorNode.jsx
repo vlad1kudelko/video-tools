@@ -8,6 +8,7 @@ import {
   NodeStatusDot,
   NodeStatusFooter,
 } from "./nodeShared.jsx";
+import { TransitionPicker } from "./TransitionPicker.jsx";
 
 export default function CombinatorNode({ id, data, selected }) {
   const { manifest, params, blocks = [], status, statusLabel, progress } = data;
@@ -98,16 +99,25 @@ export default function CombinatorNode({ id, data, selected }) {
         </button>
 
         <div className="space-y-2">
-          {Object.entries(schemaProps).map(([key, field]) => (
-            <ParamField
-              key={key}
-              name={key}
-              field={field}
-              value={params?.[key]}
-              onChange={(v) => data.onParamChange(id, key, v)}
-              onFocus={() => data.onFieldFocus?.()}
-            />
-          ))}
+          {Object.entries(schemaProps).map(([key, field]) =>
+            key === "transition" ? (
+              <TransitionPicker
+                key={key}
+                value={params?.[key]}
+                onChange={(v) => data.onParamChange(id, key, v)}
+                onFocus={() => data.onFieldFocus?.()}
+              />
+            ) : (
+              <ParamField
+                key={key}
+                name={key}
+                field={field}
+                value={params?.[key]}
+                onChange={(v) => data.onParamChange(id, key, v)}
+                onFocus={() => data.onFieldFocus?.()}
+              />
+            )
+          )}
         </div>
       </div>
 

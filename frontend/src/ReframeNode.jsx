@@ -11,6 +11,9 @@ import {
 const inputClass =
   "w-full rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-40";
 
+const MODE_LABELS = { blur: "Размытый фон", crop: "Обрезка" };
+const GRAVITY_LABELS = { center: "Центр", top: "Сверху", bottom: "Снизу", left: "Слева", right: "Справа" };
+
 export default function ReframeNode({ id, data, selected }) {
   const { manifest, params = {}, connected, inlineFileName, status, statusLabel, progress } = data;
   const schemaProps = manifest?.params_schema?.properties || {};
@@ -68,7 +71,7 @@ export default function ReframeNode({ id, data, selected }) {
 
         <div className="flex items-end gap-1.5">
           <label className="flex-1 text-xs">
-            <span className="mb-0.5 block text-neutral-400">Width</span>
+            <span className="mb-0.5 block text-neutral-400">Ширина</span>
             <input
               type="number"
               value={params.width ?? 0}
@@ -86,7 +89,7 @@ export default function ReframeNode({ id, data, selected }) {
             ⇄
           </button>
           <label className="flex-1 text-xs">
-            <span className="mb-0.5 block text-neutral-400">Height</span>
+            <span className="mb-0.5 block text-neutral-400">Высота</span>
             <input
               type="number"
               value={params.height ?? 0}
@@ -98,18 +101,18 @@ export default function ReframeNode({ id, data, selected }) {
         </div>
 
         <label className="block text-xs">
-          <span className="mb-0.5 block text-neutral-400">Mode</span>
+          <span className="mb-0.5 block text-neutral-400">Режим</span>
           <select value={params.mode ?? "blur"} onFocus={focus} onChange={(e) => setParam("mode", e.target.value)} className={inputClass}>
             {modeOptions.map((m) => (
               <option key={m} value={m}>
-                {m}
+                {MODE_LABELS[m] || m}
               </option>
             ))}
           </select>
         </label>
 
         <label className="block text-xs">
-          <span className="mb-0.5 block text-neutral-400">Gravity{!isCrop && " (только для crop)"}</span>
+          <span className="mb-0.5 block text-neutral-400">Гравитация{!isCrop && " (только для обрезки)"}</span>
           <select
             value={params.gravity ?? "center"}
             disabled={!isCrop}
@@ -119,14 +122,14 @@ export default function ReframeNode({ id, data, selected }) {
           >
             {gravityOptions.map((g) => (
               <option key={g} value={g}>
-                {g}
+                {GRAVITY_LABELS[g] || g}
               </option>
             ))}
           </select>
         </label>
 
         <label className="block text-xs">
-          <span className="mb-0.5 block text-neutral-400">Duration</span>
+          <span className="mb-0.5 block text-neutral-400">Длительность для картинок, сек</span>
           <input
             type="number"
             min="0.1"
