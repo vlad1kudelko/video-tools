@@ -1,6 +1,6 @@
 import { Handle, Position } from "@xyflow/react";
 
-function ParamField({ name, field, value, onChange }) {
+function ParamField({ name, field, value, onChange, onFocus }) {
   const label = field.title || name;
   const inputClass =
     "w-full rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-indigo-500";
@@ -9,7 +9,12 @@ function ParamField({ name, field, value, onChange }) {
     return (
       <label className="block text-xs">
         <span className="mb-0.5 block text-neutral-400">{label}</span>
-        <select value={value ?? field.default ?? ""} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+        <select
+          value={value ?? field.default ?? ""}
+          onFocus={onFocus}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputClass}
+        >
           {field.enum.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
@@ -26,6 +31,7 @@ function ParamField({ name, field, value, onChange }) {
         <input
           type="number"
           value={value ?? field.default ?? 0}
+          onFocus={onFocus}
           onChange={(e) => onChange(Number(e.target.value))}
           className={inputClass}
         />
@@ -35,7 +41,7 @@ function ParamField({ name, field, value, onChange }) {
   if (field.type === "boolean") {
     return (
       <label className="flex items-center gap-2 text-xs text-neutral-300">
-        <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
+        <input type="checkbox" checked={!!value} onFocus={onFocus} onChange={(e) => onChange(e.target.checked)} />
         <span>{label}</span>
       </label>
     );
@@ -43,7 +49,13 @@ function ParamField({ name, field, value, onChange }) {
   return (
     <label className="block text-xs">
       <span className="mb-0.5 block text-neutral-400">{label}</span>
-      <input type="text" value={value ?? field.default ?? ""} onChange={(e) => onChange(e.target.value)} className={inputClass} />
+      <input
+        type="text"
+        value={value ?? field.default ?? ""}
+        onFocus={onFocus}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+      />
     </label>
   );
 }
@@ -121,6 +133,7 @@ export default function ModuleNode({ id, data }) {
               field={field}
               value={params?.[key]}
               onChange={(v) => data.onParamChange(id, key, v)}
+              onFocus={() => data.onFieldFocus?.()}
             />
           ))}
         </div>
