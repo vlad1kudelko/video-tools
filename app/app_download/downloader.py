@@ -17,6 +17,10 @@ def _ext_from_url(url: str) -> str:
     return suffix if 1 < len(suffix) <= 6 else ""
 
 
+def _sync_progress(job: DownloadJob) -> None:
+    job.progress = min((job.done + job.current_progress) / job.total, 1.0) if job.total else 0.0
+
+
 async def download_all(job: DownloadJob, lines: list[str], workdir: Path) -> tuple[list[Path], list[str]]:
     """Download the URL on each line to workdir/media-<line-number>.ext — the
     number is the line's position in the source file, not a running count, so
@@ -36,6 +40,7 @@ async def download_all(job: DownloadJob, lines: list[str], workdir: Path) -> tup
             name = f"media-{line_no:03d}"
             job.current_name = name
             job.current_progress = 0.0
+            _sync_progress(job)
             if is_youtube(url):
                 skipped_youtube.append(url)
             else:
@@ -53,11 +58,13 @@ async def download_all(job: DownloadJob, lines: list[str], workdir: Path) -> tup
                                 written += len(chunk)
                                 if total_bytes:
                                     job.current_progress = min(written / total_bytes, 1.0)
+                                    _sync_progress(job)
                         saved.append(dst)
                 except Exception:  # noqa: BLE001
                     pass
             job.done = line_no
             job.current_progress = 1.0
+            _sync_progress(job)
     return saved, skipped_youtube
 
 

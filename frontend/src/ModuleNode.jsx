@@ -1,8 +1,16 @@
 import { Handle, Position } from "@xyflow/react";
-import { ParamField, fileToBase64, STATUS_LABELS, STATUS_DOT, portHandleStyle, DeleteNodeButton } from "./nodeShared.jsx";
+import {
+  ParamField,
+  fileToBase64,
+  STATUS_LABELS,
+  STATUS_DOT,
+  portHandleStyle,
+  DeleteNodeButton,
+  NodeProgressBar,
+} from "./nodeShared.jsx";
 
 export default function ModuleNode({ id, data, selected }) {
-  const { manifest, params, connected, inlineText, inlineFileName, status, statusLabel } = data;
+  const { manifest, params, connected, inlineText, inlineFileName, status, statusLabel, progress } = data;
   const schemaProps = manifest?.params_schema?.properties || {};
 
   const onFileInput = async (e) => {
@@ -21,7 +29,7 @@ export default function ModuleNode({ id, data, selected }) {
       <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-800 bg-neutral-800/60 px-3 py-2 text-sm font-semibold text-neutral-100">
         <span>{manifest?.label || data.moduleId}</span>
         <div className="flex items-center gap-1.5">
-          {status && <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status] || "bg-neutral-500"}`} />}
+          {status && <span className={`h-5 w-5 rounded-full ${STATUS_DOT[status] || "bg-neutral-500"}`} />}
           <DeleteNodeButton onClick={() => data.onDeleteNode?.(id)} />
         </div>
       </div>
@@ -70,9 +78,12 @@ export default function ModuleNode({ id, data, selected }) {
       )}
 
       {status && (
-        <div className="rounded-b-xl border-t border-neutral-800 px-3 py-1.5 text-xs text-neutral-400">
-          {statusLabel || STATUS_LABELS[status] || status}
-        </div>
+        <>
+          <NodeProgressBar status={status} progress={progress} />
+          <div className="rounded-b-xl border-t border-neutral-800 px-3 py-1.5 text-xs text-neutral-400">
+            {statusLabel || STATUS_LABELS[status] || status}
+          </div>
+        </>
       )}
     </div>
   );

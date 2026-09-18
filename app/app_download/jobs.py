@@ -16,6 +16,7 @@ class DownloadJob:
     done: int = 0
     current_name: str = ""
     current_progress: float = 0.0
+    progress: float = 0.0  # overall fraction, (done + current_progress) / total — the pipeline reads this uniformly
     skipped_youtube: list[str] = field(default_factory=list)
     result: Path | None = None
 

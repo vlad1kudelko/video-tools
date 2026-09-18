@@ -46,7 +46,10 @@ async def ws(run_id: str, sock: WebSocket):
         await sock.send_json({
             "status": run.status,
             "nodes": [
-                {"node_id": n.node_id, "module_id": n.module_id, "status": n.status, "message": n.message}
+                {
+                    "node_id": n.node_id, "module_id": n.module_id,
+                    "status": n.status, "message": n.message, "progress": round(n.progress, 3),
+                }
                 for n in run.nodes
             ],
         })

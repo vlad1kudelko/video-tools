@@ -104,6 +104,16 @@ export const STATUS_DOT = {
   error: "bg-red-500",
 };
 
+export function NodeProgressBar({ status, progress }) {
+  if (status !== "processing" && status !== "done") return null;
+  const pct = Math.round((progress || 0) * 100);
+  return (
+    <div className="h-1.5 w-full overflow-hidden bg-neutral-800">
+      <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 // One color+shape per port type, applied to every connector dot (Handle) so
 // compatibility is visible at a glance, not just enforced silently inside
 // isValidConnection. Shape carries "single item vs. list" (circle vs.

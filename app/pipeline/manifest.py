@@ -39,6 +39,7 @@ class JobLike(Protocol):
     status: str  # "processing" | "done" | "error"
     message: str
     result: Path | None
+    progress: float  # 0.0-1.0 — drives the node's progress bar on the canvas
 
 
 @dataclass

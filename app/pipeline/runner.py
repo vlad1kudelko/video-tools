@@ -19,6 +19,7 @@ class NodeStatus:
     module_id: str
     status: str = "queued"  # queued | processing | done | error
     message: str = ""
+    progress: float = 0.0
 
 
 @dataclass
@@ -110,6 +111,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 job = await manifest.start(inp, params)
             while job.status == "processing":
                 st.message = job.message
+                st.progress = getattr(job, "progress", 0.0)
                 await asyncio.sleep(POLL_SECONDS)
             st.message = job.message
             if job.status != "done" or not job.result:
@@ -118,6 +120,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 _cleanup_all(completed_workdirs)
                 return
             st.status = "done"
+            st.progress = 1.0
             results[node.node_id] = job.result
             run.result = job.result
             completed_workdirs.append(job.result.parent)  # every module's result lives at TMP/job.id/<file>

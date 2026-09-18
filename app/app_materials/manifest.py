@@ -31,6 +31,7 @@ class _PipelineJob:
     status: str = "processing"
     message: str = ""
     result: Path | None = None
+    progress: float = 0.0  # no granular phase tracking here — stays 0 until done
 
 
 async def _media_size(client: httpx.AsyncClient, url: str) -> int:

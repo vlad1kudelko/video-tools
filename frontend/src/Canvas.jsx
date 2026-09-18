@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, Controls, addEdge, useEdgesState, useNodesState } from "@xyflow/react";
 import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
+import ReframeNode from "./ReframeNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { listModules, runPipeline, subscribeRun } from "./api.js";
 import { PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode, combinator: CombinatorNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
@@ -378,7 +379,7 @@ export default function Canvas() {
       ...nds,
       {
         id,
-        type: "module",
+        type: moduleId === "reframe" ? "reframe" : "module",
         position,
         data: {
           moduleId,
@@ -430,7 +431,9 @@ export default function Canvas() {
       const { run_id } = await runPipeline({ nodes: graphNodes });
       setRunId(run_id);
       subscribeRun(run_id, (update) => {
-        update.nodes.forEach((n) => updateNodeData(n.node_id, { status: n.status, statusLabel: n.message }));
+        update.nodes.forEach((n) =>
+          updateNodeData(n.node_id, { status: n.status, statusLabel: n.message, progress: n.progress })
+        );
         if (update.status === "done") setRunDone(true);
         if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
       });
