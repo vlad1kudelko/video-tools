@@ -29,4 +29,9 @@ register(ModuleManifest(
     input_port=PortType.TEXT_FILE,
     output_port=PortType.VIDEO_FILE_LIST,
     start=_start,
+    description=[
+        "Скачивает файлы по списку ссылок — одна ссылка на строку",
+        "Ссылки на YouTube пропускает, не скачивая",
+        "Все скачанные файлы упаковывает в один архив",
+    ],
 ))

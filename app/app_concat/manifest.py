@@ -34,4 +34,8 @@ register(ModuleManifest(
     input_port=PortType.VIDEO_FILE_LIST,
     output_port=PortType.VIDEO_FILE,
     start=_start,
+    description=[
+        "Склеивает видео из архива в один ролик, в порядке файлов внутри архива",
+        "Между клипами — плавный переход заданной длительности",
+    ],
 ))

@@ -48,15 +48,13 @@ class ModuleManifest:
     label: str
     params_model: type[BaseModel]
     output_port: PortType
-    # Kicks off the module's own existing job machinery (new_job() +
-    # asyncio.create_task(run_*)) exactly like its routes.py does today, and
-    # returns the live job object.
+    # Kicks off the module's job and returns the live job object.
     start: Callable[..., Awaitable[JobLike]]
-    # A node declares EITHER input_port (single input, most modules) OR
-    # block_input (a dynamic list of same-typed blocks, "Комбинатор" only) —
-    # never both. `start`'s signature follows: single-input modules take
-    # (PipelineInput | None, params); block-input modules take
-    # (list[BlockInput], params). The runner picks the calling convention by
-    # checking which of these two is set.
+    # Exactly one of these is set. input_port: start(PipelineInput | None, params).
+    # block_input: start(list[BlockInput], params) — dynamic blocks, "Комбинатор" only.
     input_port: PortType | None = None
     block_input: PortType | None = None
+    # Shown in an info tooltip on the canvas — a single sentence, or a list
+    # of short points when the module has several distinct behaviors worth
+    # calling out separately.
+    description: str | list[str] = ""

@@ -58,6 +58,29 @@ export function ParamField({ name, field, value, onChange, onFocus }) {
   );
 }
 
+export function InfoIcon({ description }) {
+  if (!description) return null;
+  const items = Array.isArray(description) ? description : null;
+  return (
+    <span className="group/info relative inline-flex shrink-0">
+      <span className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-neutral-600 text-[10px] font-semibold leading-none text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-300">
+        i
+      </span>
+      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden w-60 -translate-y-1/2 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 text-xs font-normal leading-snug text-neutral-300 shadow-xl group-hover/info:block">
+        {items ? (
+          <ul className="list-disc space-y-1 pl-3.5">
+            {items.map((it, i) => (
+              <li key={i}>{it}</li>
+            ))}
+          </ul>
+        ) : (
+          description
+        )}
+      </span>
+    </span>
+  );
+}
+
 export function CrossIcon({ size = 11 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
@@ -74,14 +97,7 @@ export function PlayIcon({ size = 10 }) {
   );
 }
 
-// The status dot doubles as a "run from this node onward" button — always
-// visible and always colored by the node's actual state (gray = idle/queued,
-// amber = running, green = done, red = error), same as the delete button
-// next to it. Hover darkens the same hue rather than swapping to an
-// unrelated color, and the play icon (revealed on hover, opacity only —
-// never transform, so it snaps instead of lagging) is a darker shade of
-// that same hue instead of a plain white glyph, so the whole thing reads as
-// one coherent color rather than a color plus a generic overlay.
+// Doubles as a "run from this node onward" button.
 const STATUS_COLORS = {
   idle: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
   queued: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
@@ -150,10 +166,6 @@ export function NodeProgressBar({ status, progress }) {
   );
 }
 
-// Shared by all three node types — the progress bar plus a status line that,
-// once the node is done, also carries a link to download just that node's
-// own result (replaces the one general "Скачать результат" that used to sit
-// in the toolbar — any node can be a run's endpoint now, not just the last one).
 export function NodeStatusFooter({ nodeId, status, statusLabel, progress }) {
   if (!status) return null;
   return (
@@ -176,10 +188,6 @@ export function NodeStatusFooter({ nodeId, status, statusLabel, progress }) {
   );
 }
 
-// One color+shape per port type, applied to every connector dot (Handle) so
-// compatibility is visible at a glance, not just enforced silently inside
-// isValidConnection. Shape carries "single item vs. list" (circle vs.
-// square), color carries the underlying data kind.
 export const PORT_LEGEND = [
   { type: "text_file", color: "#f59e0b", shape: "circle", label: "текст" },
   { type: "video_file", color: "#38bdf8", shape: "circle", label: "видео" },

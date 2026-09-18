@@ -42,9 +42,6 @@ export default function DeletableEdge({
           title="Разорвать связь"
           style={{
             position: "absolute",
-            // Center of the curve — only ever shown on hover now, so the
-            // earlier lag (an animated transform racing the drag) doesn't
-            // apply here; only opacity fades.
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             opacity: hovered ? 1 : 0,
             pointerEvents: hovered ? "all" : "none",

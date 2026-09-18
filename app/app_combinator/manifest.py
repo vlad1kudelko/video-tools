@@ -42,4 +42,9 @@ register(ModuleManifest(
     block_input=PortType.VIDEO_FILE_LIST,
     output_port=PortType.VIDEO_FILE,
     start=_start,
+    description=[
+        "Несколько блоков с видео — у каждого блока своё количество повторов в ролике",
+        "Клипы выбираются с учётом истории использования: реже использованные попадают чаще",
+        "Между клипами — плавный переход, как в «Склейке»",
+    ],
 ))

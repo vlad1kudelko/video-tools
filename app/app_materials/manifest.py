@@ -118,4 +118,5 @@ register(ModuleManifest(
     params_model=MaterialsParams,
     output_port=PortType.TEXT_FILE,
     start=_start,
+    description="Собирает ссылки на фото, видео и гифки из README и сайта репозитория, сортирует по размеру файла — по убыванию.",
 ))

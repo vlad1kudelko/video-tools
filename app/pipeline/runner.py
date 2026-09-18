@@ -51,10 +51,8 @@ def new_run() -> PipelineRun:
     return run
 
 
-# Persists across separate runs of the same graph (keyed by node_id, which is
-# stable across "Запустить"/"запустить с этой ноды" clicks as long as the
-# node isn't deleted) — this is what makes resuming from a specific node
-# possible without recomputing everything upstream of it.
+# Persists across runs, keyed by node_id — lets a run resume from a specific
+# node without recomputing everything upstream of it.
 NODE_RESULTS: dict[str, Path] = {}
 
 
@@ -73,9 +71,7 @@ def clear_all_results() -> None:
 
 
 def _set_node_result(node_id: str, path: Path) -> None:
-    """Recomputing a node (e.g. it's at/after start_from on a resumed run)
-    overwrites its NODE_RESULTS entry — without this, the old workdir it
-    pointed to would never get deleted and just leak on disk forever."""
+    """Deletes the old workdir a recomputed node's previous result pointed to."""
     old = NODE_RESULTS.get(node_id)
     if old is not None and old.parent != path.parent:
         shutil.rmtree(old.parent, ignore_errors=True)
@@ -111,21 +107,10 @@ def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> Pi
 
 
 async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
-    """Strictly sequential — no parallelism. One node at a time, in the order
-    the frontend already topologically sorted before sending.
-
-    `graph.start_from`, when set, marks the node the user actually clicked
-    "run" on — everything before it in the sent order (the frontend already
-    scopes this to just its ancestors, see Canvas.jsx's subgraphNodeIds) is
-    reused from NODE_RESULTS when a valid cache exists, and *computed* when
-    it doesn't (an ancestor that was simply never run yet, e.g. because
-    there's no separate "run everything" action anymore — clicking any node
-    just works, filling in whatever upstream steps are still missing).
-    `graph.start_from` itself, and everything the frontend included after it
-    (its downstream chain), always execute for real, never from cache — that
-    the clicked node re-runs is the whole point of clicking it. When unset,
-    this is a full fresh run — the current graph's previous cached results
-    are cleared first, exactly like starting over."""
+    """Sequential, in the order the frontend already topologically sorted.
+    Nodes before `start_from` reuse a cached result when one exists, and are
+    computed otherwise; `start_from` itself and everything after it always
+    execute for real. Unset `start_from` clears the graph's cache first."""
     results: dict[str, Path] = {}
     status_map = {n.node_id: NodeStatus(node_id=n.node_id, module_id=n.module_id) for n in graph.nodes}
     run.nodes = list(status_map.values())
@@ -150,9 +135,6 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                     results[node.node_id] = cached
                     st.status, st.progress, st.message = "done", 1.0, "из кэша"
                     continue
-                # No cache for this ancestor yet — compute it (and, from here
-                # on, everything downstream too: a descendant's own cache, if
-                # any, was built from this now-stale/missing input).
                 started = True
         manifest = MODULES.get(node.module_id)
         if manifest is None:
@@ -191,8 +173,3 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             run.status = "error"
             return
     run.status = "done"
-    # No automatic cleanup here anymore — every node's result now persists
-    # (in NODE_RESULTS) until an explicit clear_all_results() or a future
-    # full (start_from=None) run of the same graph. RUNS entries are likewise
-    # left alone so the result stays downloadable more than once — see
-    # routes.py's download endpoint, which no longer cleans up after itself.

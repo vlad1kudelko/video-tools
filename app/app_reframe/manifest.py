@@ -42,4 +42,10 @@ register(ModuleManifest(
     input_port=PortType.VIDEO_FILE_LIST,
     output_port=PortType.VIDEO_FILE_LIST,
     start=_start,
+    description=[
+        "Приводит видео и фото к заданному размеру (ширина × высота)",
+        "Blur — вписывает кадр целиком, поля дополняет размытым фоном",
+        "Crop — обрезает края по выбранной стороне",
+        "Для статичных изображений задаётся длительность итогового ролика",
+    ],
 ))

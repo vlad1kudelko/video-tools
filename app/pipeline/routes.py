@@ -20,6 +20,7 @@ def list_modules():
             "input_port": m.input_port.value if m.input_port else None,
             "block_input": m.block_input.value if m.block_input else None,
             "output_port": m.output_port.value,
+            "description": m.description,
         }
         for m in MODULES.values()
     ]
@@ -66,11 +67,8 @@ def clear_files():
 
 @router.get("/api/pipeline/node/{node_id}/file")
 def download_node_result(node_id: str):
-    # Keyed by node_id (not run_id) so any node that has ever completed —
-    # not just a run's final one — is downloadable, matching "run from any
-    # node" being a first-class action now. No cleanup on download — the
-    # file stays cached until an explicit "Очистить файлы" or a fresh full
-    # run, so re-downloading the same result works without re-running.
+    # No cleanup on download — the file stays cached until an explicit
+    # clear or a fresh run recomputes it.
     path = NODE_RESULTS.get(node_id)
     if not path or not path.exists():
         raise HTTPException(404)

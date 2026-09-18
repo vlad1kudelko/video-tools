@@ -5,7 +5,7 @@ import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { clearAllFiles, listModules, runPipeline, subscribeRun } from "./api.js";
-import { PORT_LEGEND } from "./nodeShared.jsx";
+import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
 const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
 const edgeTypes = { deletable: DeletableEdge };
@@ -23,12 +23,8 @@ function topoSort(nodes, edges) {
   return order;
 }
 
-// Everything a "run from this node" actually touches: every node it
-// transitively depends on (ancestors, via edges — needed so their cached
-// results can be reused/checked) plus the node itself plus everything
-// downstream of it (which will actually execute). A node with no edge path
-// to or from startId — sitting unconnected elsewhere on the canvas — has no
-// business running just because it happens to exist on the same canvas.
+// Ancestors + startId + descendants — a node with no edge path to/from
+// startId is left out, even if it's elsewhere on the same canvas.
 function subgraphNodeIds(startId, edges) {
   const keep = new Set([startId]);
   const visitUp = (id) => {
@@ -74,10 +70,7 @@ function blockIdFromHandle(handle) {
   return handle && handle.startsWith("block-") ? handle.slice("block-".length) : null;
 }
 
-// Same 6 entries, same order and numbering as the old per-module sidebar
-// (app/static/main.js) — modules without a pipeline manifest yet show up
-// disabled instead of just vanishing, so the list stays a complete map of
-// what the app can do, not only what's wired into the canvas so far.
+// Modules without a pipeline manifest yet show up disabled instead of vanishing.
 const SIDEBAR_ITEMS = [
   { id: "materials", fallbackLabel: "Материалы" },
   { id: "download", fallbackLabel: "Скачивание медиа" },
@@ -94,17 +87,9 @@ export default function Canvas() {
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState([]);
   const [runError, setRunError] = useState("");
 
-  // Undo/redo: a stack of {nodes, edges} snapshots. `commit()` is called
-  // right before any state-changing action to record what to go back to —
-  // node objects are always replaced (never mutated in place) by every
-  // updater below, so a shallow snapshot of the arrays is enough.
-  //
-  // `commit` gets frozen into node `data` at node-creation time (block-add,
-  // field-focus handlers live there) and node data is never wholesale
-  // replaced afterward — so a version of `commit` that closes over `nodes`/
-  // `edges` directly would keep reading whatever those were AT CREATION
-  // TIME, not the current state. Reading through a ref instead makes
-  // `commit` referentially stable (created once) and always correct.
+  // Undo/redo: a stack of {nodes, edges} snapshots. `commit` gets frozen
+  // into node `data` at creation time, so it reads nodes/edges via ref
+  // (not closure) to stay correct after later state changes.
   const [past, setPast] = useState([]);
   const [future, setFuture] = useState([]);
   const nodesRef = useRef(nodes);
@@ -202,7 +187,6 @@ export default function Canvas() {
     [updateNodeData]
   );
 
-  // Block-list handlers — only Combinator nodes use these.
   const updateBlocks = useCallback(
     (nodeId, fn) => {
       setNodes((nds) =>
@@ -256,10 +240,6 @@ export default function Canvas() {
     [updateBlocks]
   );
 
-  // Connecting an edge disables the node's own inline widget; disconnecting
-  // resets it to empty — it never held a value of its own while the edge
-  // was supplying one, so there's nothing to restore. For a Combinator node
-  // this applies per-block, keyed by which "block-<id>" handle the edge targets.
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => {
@@ -276,9 +256,6 @@ export default function Canvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edges]);
 
-  // Shared by both ways an edge can go away: pressing Backspace/Delete on a
-  // selected edge (native React Flow interaction, via onEdgesChange below)
-  // and clicking the small × button rendered on the edge itself (DeletableEdge).
   const resetEdgeTarget = useCallback(
     (edge) => {
       const blockId = blockIdFromHandle(edge.targetHandle);
@@ -288,16 +265,9 @@ export default function Canvas() {
     [resetBlockInput, updateNodeData]
   );
 
-  // Explicit × button on the node itself — the alternative to relying on
-  // "select node, then press Backspace", which deletes the whole node
-  // silently since nothing here visually marks a node as selected beyond a
-  // faint ring. Also cleans up any edges touching this node and resets the
-  // widget on the far end of any edge this node was feeding.
   const onDeleteNode = useCallback(
     (nodeId) => {
       commit();
-      // Read via ref, not the closed-over `edges` — this handler is frozen
-      // into node data at creation time (same reason `commit` needed a ref).
       edgesRef.current
         .filter((e) => e.source === nodeId || e.target === nodeId)
         .forEach((e) => {
@@ -309,12 +279,6 @@ export default function Canvas() {
     [commit, setEdges, setNodes, resetEdgeTarget]
   );
 
-  // How one node's input resolves for a run request — an edge into the given
-  // handle (from the given edge list), else whatever's been supplied inline.
-  // Takes `edgeList` explicitly rather than closing over `edges` state so it
-  // works correctly both from the toolbar Run button (fresh closure each
-  // render) and from `runFromNode` below (frozen into node data at creation
-  // time, so it must read through a ref — same reasoning as `onDeleteNode`).
   const resolveInput = useCallback((targetHandle, edgeList, widgetState) => {
     const edge = edgeList.find((e) => e.target === widgetState.nodeId && e.targetHandle === targetHandle);
     if (edge) return { kind: "edge", from: edge.source };
@@ -379,8 +343,6 @@ export default function Canvas() {
     [buildGraphNodes, updateNodeData]
   );
 
-  // Frozen into node data at creation time (like onDeleteNode) — must read
-  // the graph through refs, not the closed-over `nodes`/`edges` state.
   const runFromNode = useCallback(
     (nodeId) => runGraph(nodeId, nodesRef.current, edgesRef.current),
     [runGraph]
@@ -521,25 +483,30 @@ export default function Canvas() {
 
   return (
     <div className="flex h-full flex-col bg-neutral-950 text-neutral-100 md:flex-row">
-      <aside className="flex shrink-0 flex-col border-b border-neutral-800 md:h-full md:w-56 md:border-b-0 md:border-r">
+      <aside className="flex shrink-0 flex-col border-b border-neutral-800 md:h-full md:w-fit md:border-b-0 md:border-r">
         <div className="px-5 py-4 text-sm font-semibold tracking-wide text-neutral-400">VIDEO TOOLS</div>
         <nav className="flex gap-2 px-3 pb-3 md:flex-col md:pb-0">
           {SIDEBAR_ITEMS.map((item, i) => {
             const manifest = modules[item.id];
             return manifest ? (
-              <button
+              <div
                 key={item.id}
-                onClick={() => addNode(item.id)}
-                className="rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-400 transition hover:bg-neutral-900"
+                className="flex items-center gap-1 rounded-lg pr-2 transition hover:bg-neutral-900"
               >
-                {i + 1}. {manifest.label}
-              </button>
+                <button
+                  onClick={() => addNode(item.id)}
+                  className="flex-1 whitespace-nowrap px-3 py-2 text-left text-sm font-medium text-neutral-400"
+                >
+                  {i + 1}. {manifest.label}
+                </button>
+                <InfoIcon description={manifest.description} />
+              </div>
             ) : (
               <button
                 key={item.id}
                 disabled
                 title="Пока не подключено к пайплайну"
-                className="cursor-not-allowed rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700"
+                className="cursor-not-allowed whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700"
               >
                 {i + 1}. {item.fallbackLabel}
               </button>

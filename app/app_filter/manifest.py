@@ -87,4 +87,5 @@ register(ModuleManifest(
     input_port=PortType.VIDEO_FILE_LIST,
     output_port=PortType.VIDEO_FILE_LIST,
     start=_start,
+    description="Сортирует список файлов по разрешению кадра и по размеру — по убыванию.",
 ))

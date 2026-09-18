@@ -4,6 +4,7 @@ import {
   fileToBase64,
   portHandleStyle,
   DeleteNodeButton,
+  InfoIcon,
   NodeStatusDot,
   NodeStatusFooter,
 } from "./nodeShared.jsx";
@@ -21,13 +22,16 @@ export default function ModuleNode({ id, data, selected }) {
 
   return (
     <div
-      className={`w-64 rounded-xl border bg-neutral-900 shadow-lg ${
+      className={`w-72 rounded-xl border bg-neutral-900 shadow-lg ${
         selected ? "border-indigo-500 ring-2 ring-indigo-500/40" : "border-neutral-700"
       }`}
     >
       <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-800 bg-neutral-800/60 px-3 py-2 text-sm font-semibold text-neutral-100">
-        <span>{manifest?.label || data.moduleId}</span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{manifest?.label || data.moduleId}</span>
+          <InfoIcon description={manifest?.description} />
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           <NodeStatusDot status={status} onRunFromHere={() => data.onRunFromHere?.(id)} />
           <DeleteNodeButton onClick={() => data.onDeleteNode?.(id)} />
         </div>
