@@ -566,6 +566,14 @@ export default function Canvas() {
     }
   };
 
+  const moduleCounts = useMemo(() => {
+    const counts = {};
+    nodes.forEach((n) => {
+      counts[n.data.moduleId] = (counts[n.data.moduleId] || 0) + 1;
+    });
+    return counts;
+  }, [nodes]);
+
   return (
     <div className="flex h-full flex-col bg-neutral-950 text-neutral-100 md:flex-row">
       <aside className="flex shrink-0 flex-col border-b border-neutral-800 md:h-full md:w-fit md:border-b-0 md:border-r">
@@ -584,6 +592,14 @@ export default function Canvas() {
                 >
                   {i + 1}. {manifest.label}
                 </button>
+                {!!moduleCounts[item.id] && (
+                  <span
+                    title="Нод этого типа на холсте"
+                    className="shrink-0 rounded-full bg-neutral-800 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-400"
+                  >
+                    {moduleCounts[item.id]}
+                  </span>
+                )}
                 <InfoIcon description={manifest.description} />
               </div>
             ) : (
