@@ -157,8 +157,9 @@ export const STATUS_LABELS = {
 };
 
 export function NodeProgressBar({ status, progress }) {
-  if (status !== "processing" && status !== "done") return null;
-  const pct = Math.round((progress || 0) * 100);
+  // Always occupies its height, even idle — so a node's total height doesn't
+  // shift once it's actually run for the first time.
+  const pct = status === "processing" || status === "done" ? Math.round((progress || 0) * 100) : 0;
   return (
     <div className="h-1.5 w-full overflow-hidden bg-neutral-800">
       <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />
@@ -167,12 +168,11 @@ export function NodeProgressBar({ status, progress }) {
 }
 
 export function NodeStatusFooter({ nodeId, status, statusLabel, progress }) {
-  if (!status) return null;
   return (
     <>
       <NodeProgressBar status={status} progress={progress} />
       <div className="flex items-center justify-between gap-2 rounded-b-xl border-t border-neutral-800 px-3 py-1.5 text-xs text-neutral-400">
-        <span className="truncate">{statusLabel || STATUS_LABELS[status] || status}</span>
+        <span className="truncate">{status ? statusLabel || STATUS_LABELS[status] || status : "—"}</span>
         {status === "done" && (
           <a
             href={`/api/pipeline/node/${nodeId}/file`}

@@ -74,7 +74,7 @@ export default function S3FileNode({ id, data, selected }) {
             <option value="">— выбрать —</option>
             {files.map((f) => (
               <option key={f.key} value={f.key}>
-                {f.name} ({formatSize(f.size)})
+                {f.key} ({formatSize(f.size)})
               </option>
             ))}
           </select>
