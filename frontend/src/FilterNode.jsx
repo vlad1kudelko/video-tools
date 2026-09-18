@@ -29,9 +29,12 @@ export default function FilterNode({ id, data, selected }) {
 
   // Mode select + its threshold number field share one row — reading a
   // switch and the value it gates as two separate stacked rows was confusing.
-  const ModeRow = ({ modeKey, thresholdKey, thresholdDefault }) => (
+  const ModeRow = ({ modeKey, thresholdKey, thresholdDefault, unit }) => (
     <label className="block text-xs">
-      <span className="mb-0.5 block text-neutral-400">{schemaProps[modeKey]?.title || modeKey}</span>
+      <span className="mb-0.5 block text-neutral-400">
+        {schemaProps[modeKey]?.title || modeKey}
+        {unit && `, ${unit}`}
+      </span>
       <div className="flex gap-1.5">
         <select
           value={params[modeKey] ?? "выкл"}
@@ -93,7 +96,7 @@ export default function FilterNode({ id, data, selected }) {
 
         <ModeRow modeKey="density_mode" thresholdKey="density_threshold_kb_per_mp" thresholdDefault={50} />
         <ModeRow modeKey="alpha_mode" />
-        <ModeRow modeKey="square_mode" thresholdKey="square_tolerance_pct" thresholdDefault={15} />
+        <ModeRow modeKey="square_mode" thresholdKey="square_tolerance_pct" thresholdDefault={15} unit="%" />
       </div>
 
       {manifest?.output_port && (
