@@ -4,7 +4,6 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -15,15 +14,9 @@ from ..pipeline.registry import register
 from ..pipeline.types import PortType
 from .domain import rank_files
 
-Mode = Literal["выкл", "понизить в выдаче", "полностью исключить"]
-
 
 class FilterParams(BaseModel):
-    density_mode: Mode = Field(default="выкл", title="Проверка плотности (иконки/логотипы)")
-    density_threshold_kb_per_mp: float = Field(default=50.0, title="Порог плотности, КБ на мегапиксель")
-    alpha_mode: Mode = Field(default="выкл", title="Проверка альфа-канала")
-    square_mode: Mode = Field(default="выкл", title="Считать иконкой при отклонении от квадрата меньше")
-    square_tolerance_pct: float = Field(default=15.0, title="Считать иконкой при отклонении от квадрата меньше, %")
+    move_square_to_end: bool = Field(default=True, title="Квадратные — в конец списка")
 
 
 @dataclass
@@ -57,14 +50,7 @@ async def _run(job: _Job, data: bytes, name: str, params: FilterParams) -> None:
             came_as_archive = False
 
         job.message = "Анализ разрешения"
-        ranked, vector = await rank_files(
-            paths, job,
-            density_mode=params.density_mode,
-            density_threshold_kb_per_mp=params.density_threshold_kb_per_mp,
-            alpha_mode=params.alpha_mode,
-            square_mode=params.square_mode,
-            square_tolerance_pct=params.square_tolerance_pct,
-        )
+        ranked, vector = await rank_files(paths, job, move_square_to_end=params.move_square_to_end)
         ordered = ranked + vector
 
         if not ordered:
@@ -107,9 +93,6 @@ register(ModuleManifest(
     start=_start,
     description=[
         "Сортирует список файлов по разрешению кадра и по размеру — по убыванию",
-        "Проверка плотности: низкая плотность (мало байт на мегапиксель) выдаёт плоскую графику вроде иконок и логотипов",
-        "Проверка альфа-канала: помечает файлы с прозрачностью",
-        "Проверка квадратности: помечает файлы, у которых отклонение от квадрата меньше заданного процента — например, 5% поймает только совсем квадратные и близкие к ним",
-        "Для каждой проверки — либо просто понизить такие файлы в выдаче, либо исключить полностью",
+        "Квадратные файлы (ширина = высота) можно опустить в конец списка отдельным чекбоксом",
     ],
 ))

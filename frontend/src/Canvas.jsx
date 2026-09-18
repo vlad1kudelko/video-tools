@@ -3,12 +3,11 @@ import { ReactFlow, Background, Controls, addEdge, useEdgesState, useNodesState 
 import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
-import FilterNode from "./FilterNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { clearAllFiles, listModules, loadGraph, runPipeline, saveGraph, subscribeRun } from "./api.js";
 import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, filter: FilterNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
