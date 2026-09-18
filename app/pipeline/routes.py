@@ -75,28 +75,15 @@ def download_node_result(node_id: str):
     return FileResponse(path, filename=path.name)
 
 
-@router.get("/api/pipeline/presets")
-def list_presets():
-    return s3_store.list_presets()
-
-
-@router.get("/api/pipeline/presets/{name}")
-def get_preset(name: str):
-    data = s3_store.get_preset(name)
-    if data is None:
-        raise HTTPException(404)
-    return data
-
-
-@router.post("/api/pipeline/graphs")
+@router.post("/api/pipeline/graph")
 def save_graph(graph: dict):
-    graph_id = s3_store.save_graph(graph)
-    return {"id": graph_id}
+    s3_store.save_graph(graph)
+    return {"ok": True}
 
 
-@router.get("/api/pipeline/graphs/{graph_id}")
-def get_graph(graph_id: str):
-    data = s3_store.get_graph(graph_id)
+@router.get("/api/pipeline/graph")
+def get_graph():
+    data = s3_store.get_graph()
     if data is None:
         raise HTTPException(404)
     return data

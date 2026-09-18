@@ -5,7 +5,7 @@ import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
 import FilterNode from "./FilterNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
-import { clearAllFiles, listModules, runPipeline, subscribeRun } from "./api.js";
+import { clearAllFiles, listModules, loadGraph, runPipeline, saveGraph, subscribeRun } from "./api.js";
 import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
 const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, filter: FilterNode };
@@ -87,6 +87,7 @@ export default function Canvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState([]);
   const [runError, setRunError] = useState("");
+  const [graphStatus, setGraphStatus] = useState("");
 
   // Undo/redo: a stack of {nodes, edges} snapshots. `commit` gets frozen
   // into node `data` at creation time, so it reads nodes/edges via ref
@@ -438,7 +439,7 @@ export default function Canvas() {
     if (!manifest) return;
     commit();
     const id = `${moduleId}-${Date.now()}`;
-    const position = { x: 80 + (nodes.length % 4) * 260, y: 100 + Math.floor(nodes.length / 4) * 220 };
+    const position = { x: 80 + (nodes.length % 4) * 320, y: 100 + Math.floor(nodes.length / 4) * 260 };
     if (manifest.block_input) {
       setNodes((nds) => [
         ...nds,
@@ -480,6 +481,82 @@ export default function Canvas() {
       nds.map((n) => ({ ...n, data: { ...n.data, status: undefined, statusLabel: undefined, progress: undefined } }))
     );
     setRunError("");
+  };
+
+  const serializeGraph = (nodeList, edgeList) => ({
+    nodes: nodeList.map((n) => ({
+      id: n.id,
+      moduleId: n.data.moduleId,
+      position: n.position,
+      params: n.data.params,
+      blocks: n.data.blocks?.map((b) => ({
+        id: b.id,
+        count: b.count,
+        inlineFileBase64: b.inlineFileBase64,
+        inlineFileName: b.inlineFileName,
+      })),
+      inlineText: n.data.inlineText,
+      inlineFileBase64: n.data.inlineFileBase64,
+      inlineFileName: n.data.inlineFileName,
+    })),
+    edges: edgeList.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+    })),
+  });
+
+  const handleSaveGraph = async () => {
+    try {
+      await saveGraph(serializeGraph(nodes, edges));
+      setGraphStatus("Граф сохранён");
+      setTimeout(() => setGraphStatus(""), 3000);
+    } catch (err) {
+      setRunError(String(err.message || err));
+    }
+  };
+
+  const handleLoadGraph = async () => {
+    try {
+      const saved = await loadGraph();
+      commit();
+      const newNodes = (saved.nodes || []).map((n) => {
+        const manifest = modules[n.moduleId];
+        const isCombinator = !!manifest?.block_input;
+        const type = isCombinator ? "combinator" : nodeTypes[n.moduleId] ? n.moduleId : "module";
+        const baseData = {
+          moduleId: n.moduleId,
+          manifest,
+          params: n.params || {},
+          inlineText: n.inlineText || "",
+          inlineFileBase64: n.inlineFileBase64 ?? null,
+          inlineFileName: n.inlineFileName ?? null,
+        };
+        if (isCombinator) {
+          return {
+            id: n.id,
+            type,
+            position: n.position,
+            data: {
+              ...baseData,
+              blocks: (n.blocks || []).map((b) => ({ ...b, connected: false })),
+              ...combinatorHandlers,
+            },
+          };
+        }
+        return { id: n.id, type, position: n.position, data: { ...baseData, ...widgetHandlers } };
+      });
+      const newEdges = (saved.edges || []).map((e) => ({ ...e, type: "deletable", data: { onDelete: deleteEdge } }));
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setRunError("");
+      setGraphStatus("Граф загружен");
+      setTimeout(() => setGraphStatus(""), 3000);
+    } catch (err) {
+      setRunError(err.message === "HTTP 404" ? "Сохранённого графа пока нет" : String(err.message || err));
+    }
   };
 
   return (
@@ -561,6 +638,24 @@ export default function Canvas() {
             Очистить файлы
           </button>
           {runError && <span className="text-sm text-red-400">{runError}</span>}
+          <div className="ml-auto flex items-center gap-2">
+            {graphStatus && <span className="text-sm text-emerald-400">{graphStatus}</span>}
+            <button
+              onClick={handleSaveGraph}
+              disabled={nodes.length === 0}
+              title="Сохранить текущий граф"
+              className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Сохранить
+            </button>
+            <button
+              onClick={handleLoadGraph}
+              title="Загрузить сохранённый граф"
+              className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-500"
+            >
+              Загрузить
+            </button>
+          </div>
         </div>
         <div className="flex-1">
           <ReactFlow

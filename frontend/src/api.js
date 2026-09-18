@@ -3,13 +3,19 @@ export async function listModules() {
   return r.json();
 }
 
-export async function listPresets() {
-  const r = await fetch("/api/pipeline/presets");
+export async function saveGraph(graph) {
+  const r = await fetch("/api/pipeline/graph", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(graph),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
-export async function loadPreset(name) {
-  const r = await fetch(`/api/pipeline/presets/${name}`);
+export async function loadGraph() {
+  const r = await fetch("/api/pipeline/graph");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
