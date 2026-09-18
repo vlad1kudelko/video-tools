@@ -1,9 +1,11 @@
 import mimetypes
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 
+from ..config import TMP
 from .jobs import DownloadJob
 from .parse import is_youtube
 
@@ -55,3 +57,29 @@ async def download_all(job: DownloadJob, lines: list[str], workdir: Path) -> tup
             job.done = line_no
             job.current_progress = 1.0
     return saved, skipped_youtube
+
+
+async def run_download(job: DownloadJob, raw_text: str) -> None:
+    try:
+        lines = raw_text.splitlines()
+        workdir = TMP / job.id
+        job.message = "Скачивание"
+        saved, skipped_youtube = await download_all(job, lines, workdir)
+        job.skipped_youtube = skipped_youtube
+
+        if not saved and not skipped_youtube:
+            job.status, job.message = "error", "Не удалось скачать ни одной ссылки"
+            return
+
+        zpath = workdir / "media.zip"
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for p in saved:
+                z.write(p, p.name)
+            z.writestr("links.txt", raw_text)
+
+        job.result = zpath
+        failed = job.total - len(saved) - len(skipped_youtube)
+        job.message = "Готово" if failed <= 0 else f"Готово, не удалось скачать: {failed}"
+        job.status = "done"
+    except Exception as exc:  # noqa: BLE001
+        job.status, job.message = "error", str(exc)

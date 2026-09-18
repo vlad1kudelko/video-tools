@@ -1,0 +1,29 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+.react-flow__background {
+  background-color: #0a0a0a;
+}
+
+.react-flow__controls button {
+  background: #171717;
+  border-bottom-color: #262626;
+  fill: #d4d4d4;
+}
+
+.react-flow__controls button:hover {
+  background: #262626;
+}
+
+.react-flow__edge-path {
+  stroke: #6366f1;
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: #6366f1;
+  border: 2px solid #171717;
+}

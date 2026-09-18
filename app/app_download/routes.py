@@ -1,42 +1,14 @@
 import asyncio
-import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
-from ..config import TMP
-from .downloader import download_all
-from .jobs import JOBS, DownloadJob, cleanup, new_job
+from .downloader import run_download
+from .jobs import JOBS, cleanup, new_job
 
 router = APIRouter()
-
-
-async def _run(job: DownloadJob, raw_text: str) -> None:
-    try:
-        lines = raw_text.splitlines()
-        workdir = TMP / job.id
-        job.message = "Скачивание"
-        saved, skipped_youtube = await download_all(job, lines, workdir)
-        job.skipped_youtube = skipped_youtube
-
-        if not saved and not skipped_youtube:
-            job.status, job.message = "error", "Не удалось скачать ни одной ссылки"
-            return
-
-        zpath = workdir / "media.zip"
-        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
-            for p in saved:
-                z.write(p, p.name)
-            z.writestr("links.txt", raw_text)
-
-        job.result = zpath
-        failed = job.total - len(saved) - len(skipped_youtube)
-        job.message = "Готово" if failed <= 0 else f"Готово, не удалось скачать: {failed}"
-        job.status = "done"
-    except Exception as exc:  # noqa: BLE001
-        job.status, job.message = "error", str(exc)
 
 
 @router.post("/api/downloads/start")
@@ -44,7 +16,7 @@ async def start(file: UploadFile = File(...)):
     raw = (await file.read()).decode("utf-8", errors="ignore")
     job = new_job()
     job.filename = f"{Path(file.filename).stem}.zip" if file.filename else "media.zip"
-    asyncio.create_task(_run(job, raw))
+    asyncio.create_task(run_download(job, raw))
     return {"id": job.id}
 
 

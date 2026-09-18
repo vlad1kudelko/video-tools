@@ -4,7 +4,6 @@ import { DownloadTab } from "/download-static/download.js";
 import { RecordTab } from "/record-static/record.js";
 import { ConcatTab } from "/concat-static/concat.js";
 import { CombinatorTab } from "/combinator-static/combinator.js";
-import { StreamTab } from "/stream-static/stream.js";
 
 const { h, render } = preact;
 const { useState } = preactHooks;
@@ -17,7 +16,6 @@ const TABS = [
   { id: "reframe", label: "4. Кадрирование", Component: ReframeTab },
   { id: "concat", label: "5. Склейка видео", Component: ConcatTab },
   { id: "combinator", label: "6. Комбинатор", Component: CombinatorTab },
-  { id: "stream", label: "7. Стрим", Component: StreamTab },
 ];
 
 const navBtnClass = on =>
@@ -34,6 +32,7 @@ function App() {
           ${TABS.map(t => html`
             <button key=${t.id} class=${navBtnClass(t.id === tab)} onClick=${() => setTab(t.id)}>${t.label}</button>
           `)}
+          <a href="/canvas/" class="rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-400 transition hover:bg-neutral-900">Пайплайн (бета)</a>
         </nav>
       </aside>
       <main class="mx-auto w-full max-w-4xl flex-1 px-5 py-8">

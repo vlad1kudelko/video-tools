@@ -12,7 +12,7 @@ from ..config import S3_ACCESS_KEY, S3_BUCKET, S3_ENDPOINT, S3_REGION, S3_SECRET
 # disk so it survives container recreation and stays readable from anywhere.
 # Also doubles as the balancing signal — pick counts are tallied from this same
 # log, so the same block pools stay used evenly across many separate runs.
-USAGE_KEY = "combinator-usage.yaml"
+USAGE_KEY = "history/combinator-usage.yaml"
 
 _client = None
 

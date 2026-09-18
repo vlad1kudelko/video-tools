@@ -7,8 +7,8 @@ from .app_download.routes import router as download_router
 from .app_materials.routes import router as materials_router
 from .app_record.routes import router as record_router
 from .app_reframe.routes import router as reframe_router
-from .app_stream.routes import router as stream_router
 from .config import (
+    CANVAS_STATIC,
     COMBINATOR_STATIC,
     CONCAT_STATIC,
     DOWNLOAD_STATIC,
@@ -16,9 +16,10 @@ from .config import (
     RECORD_STATIC,
     REFRAME_STATIC,
     STATIC,
-    STREAM_STATIC,
     TMP,
 )
+from .pipeline import manifests  # noqa: F401  — registers all module manifests on import
+from .pipeline.routes import router as pipeline_router
 
 app = FastAPI()
 app.include_router(reframe_router)
@@ -27,7 +28,7 @@ app.include_router(download_router)
 app.include_router(record_router)
 app.include_router(concat_router)
 app.include_router(combinator_router)
-app.include_router(stream_router)
+app.include_router(pipeline_router)
 
 
 @app.on_event("startup")
@@ -43,5 +44,5 @@ app.mount("/download-static", StaticFiles(directory=DOWNLOAD_STATIC), name="down
 app.mount("/record-static", StaticFiles(directory=RECORD_STATIC), name="record-static")
 app.mount("/concat-static", StaticFiles(directory=CONCAT_STATIC), name="concat-static")
 app.mount("/combinator-static", StaticFiles(directory=COMBINATOR_STATIC), name="combinator-static")
-app.mount("/stream-static", StaticFiles(directory=STREAM_STATIC), name="stream-static")
+app.mount("/canvas", StaticFiles(directory=CANVAS_STATIC, html=True, check_dir=False), name="canvas")
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

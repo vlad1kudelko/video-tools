@@ -9,7 +9,7 @@ DOWNLOAD_STATIC = Path(__file__).parent / "app_download" / "static"
 CONCAT_STATIC = Path(__file__).parent / "app_concat" / "static"
 RECORD_STATIC = Path(__file__).parent / "app_record" / "static"
 COMBINATOR_STATIC = Path(__file__).parent / "app_combinator" / "static"
-STREAM_STATIC = Path(__file__).parent / "app_stream" / "static"
+CANVAS_STATIC = Path(__file__).parent / "canvas-static"
 LIGHTPANDA_CDP_URL = os.environ.get("LIGHTPANDA_CDP_URL", "http://127.0.0.1:9222")
 WITH_BROWSER = os.environ.get("WITH_BROWSER", "false").lower() == "true"
 
