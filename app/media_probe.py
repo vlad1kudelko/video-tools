@@ -8,7 +8,7 @@ async def probe(path: Path) -> dict:
     stream, and whether an audio stream is present."""
     proc = await asyncio.create_subprocess_exec(
         "ffprobe", "-v", "error", "-print_format", "json",
-        "-show_entries", "format=duration:stream=codec_type,width,height,r_frame_rate",
+        "-show_entries", "format=duration:stream=codec_type,width,height,r_frame_rate,pix_fmt",
         str(path),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
     )
@@ -27,4 +27,5 @@ async def probe(path: Path) -> dict:
         "height": int(video.get("height") or 0),
         "r_frame_rate": video.get("r_frame_rate") or "25/1",
         "has_audio": has_audio,
+        "pix_fmt": video.get("pix_fmt") or "",
     }

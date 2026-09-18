@@ -3,9 +3,10 @@ import shutil
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..config import TMP
 from ..pipeline.manifest import ModuleManifest, PipelineInput
@@ -13,9 +14,15 @@ from ..pipeline.registry import register
 from ..pipeline.types import PortType
 from .domain import rank_files
 
+Mode = Literal["выкл", "понизить в выдаче", "полностью исключить"]
+
 
 class FilterParams(BaseModel):
-    pass  # a fixed resolution-descending sort — nothing to configure
+    density_mode: Mode = Field(default="выкл", title="Проверка плотности (иконки/логотипы)")
+    density_threshold_kb_per_mp: float = Field(default=50.0, title="Порог плотности, КБ на мегапиксель")
+    alpha_mode: Mode = Field(default="выкл", title="Проверка альфа-канала")
+    square_mode: Mode = Field(default="выкл", title="Проверка отклонения от квадрата")
+    square_tolerance_pct: float = Field(default=15.0, title="Допуск отклонения от квадрата, %")
 
 
 @dataclass
@@ -28,7 +35,7 @@ class _Job:
     result: Path | None = None
 
 
-async def _run(job: _Job, data: bytes, name: str) -> None:
+async def _run(job: _Job, data: bytes, name: str, params: FilterParams) -> None:
     workdir = TMP / uuid4().hex[:12]
     workdir.mkdir(parents=True, exist_ok=True)
     try:
@@ -49,7 +56,14 @@ async def _run(job: _Job, data: bytes, name: str) -> None:
             came_as_archive = False
 
         job.message = "Анализ разрешения"
-        ranked, vector = await rank_files(paths, job)
+        ranked, vector = await rank_files(
+            paths, job,
+            density_mode=params.density_mode,
+            density_threshold_kb_per_mp=params.density_threshold_kb_per_mp,
+            alpha_mode=params.alpha_mode,
+            square_mode=params.square_mode,
+            square_tolerance_pct=params.square_tolerance_pct,
+        )
         ordered = ranked + vector
 
         if not ordered:
@@ -76,7 +90,7 @@ async def _start(inp: PipelineInput | None, params: FilterParams):
     if inp is None or inp.data is None:
         raise ValueError("Фильтрование: нужен входной файл или архив")
     job = _Job()
-    asyncio.create_task(_run(job, inp.data, inp.name or "input"))
+    asyncio.create_task(_run(job, inp.data, inp.name or "input", params))
     return job
 
 
@@ -87,5 +101,11 @@ register(ModuleManifest(
     input_port=PortType.VIDEO_FILE_LIST,
     output_port=PortType.VIDEO_FILE_LIST,
     start=_start,
-    description="Сортирует список файлов по разрешению кадра и по размеру — по убыванию.",
+    description=[
+        "Сортирует список файлов по разрешению кадра и по размеру — по убыванию",
+        "Проверка плотности: низкая плотность (мало байт на мегапиксель) выдаёт плоскую графику вроде иконок и логотипов",
+        "Проверка альфа-канала: помечает файлы с прозрачностью",
+        "Проверка квадратности: помечает файлы, близкие по пропорциям к квадрату",
+        "Для каждой проверки — либо просто понизить такие файлы в выдаче, либо исключить полностью",
+    ],
 ))

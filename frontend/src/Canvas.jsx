@@ -3,11 +3,12 @@ import { ReactFlow, Background, Controls, addEdge, useEdgesState, useNodesState 
 import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
+import FilterNode from "./FilterNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { clearAllFiles, listModules, runPipeline, subscribeRun } from "./api.js";
 import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, filter: FilterNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
@@ -460,7 +461,7 @@ export default function Canvas() {
       ...nds,
       {
         id,
-        type: moduleId === "reframe" ? "reframe" : "module",
+        type: nodeTypes[moduleId] ? moduleId : "module",
         position,
         data: {
           moduleId,
@@ -572,7 +573,6 @@ export default function Canvas() {
             isValidConnection={isValidConnection}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            fitView
           >
             <Background />
             <Controls />
