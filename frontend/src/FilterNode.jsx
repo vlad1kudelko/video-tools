@@ -146,21 +146,21 @@ export default function FilterNode({ id, data, selected }) {
       </div>
 
       <div className="space-y-2 p-3">
-        {!isWaiting && (
-          <div className="relative">
-            <Handle type="target" position={Position.Left} id="in" style={portHandleStyle(manifest?.input_port)} />
-            {connected ? (
-              <div className="rounded-md border border-dashed border-neutral-700 px-2 py-2 text-xs text-neutral-400">
-                ← подключено
-              </div>
-            ) : (
-              <div className="rounded-md border border-dashed border-neutral-700 px-2 py-2 text-xs">
-                <input type="file" onChange={onFileInput} className="w-full text-xs text-neutral-400" />
-                {inlineFileName && <div className="mt-1 truncate text-neutral-300">{inlineFileName}</div>}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Always mounted, even while waiting on a pick — unmounting the
+            Handle here would drop the edge coming in from the left. */}
+        <div className="relative">
+          <Handle type="target" position={Position.Left} id="in" style={portHandleStyle(manifest?.input_port)} />
+          {connected ? (
+            <div className="rounded-md border border-dashed border-neutral-700 px-2 py-2 text-xs text-neutral-400">
+              ← подключено
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-neutral-700 px-2 py-2 text-xs">
+              <input type="file" onChange={onFileInput} className="w-full text-xs text-neutral-400" />
+              {inlineFileName && <div className="mt-1 truncate text-neutral-300">{inlineFileName}</div>}
+            </div>
+          )}
+        </div>
 
         {isWaiting && (
           <>

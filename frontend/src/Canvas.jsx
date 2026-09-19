@@ -25,8 +25,11 @@ function topoSort(nodes, edges) {
   return order;
 }
 
-// Ancestors + startId + descendants — a node with no edge path to/from
-// startId is left out, even if it's elsewhere on the same canvas.
+// Ancestors + startId only — never downstream. Clicking a node computes
+// exactly that node's own output (its ancestors, from cache where
+// possible, plus itself for real); it never cascades further right.
+// A node with no edge path to startId is left out entirely, even if it's
+// elsewhere on the same canvas.
 function subgraphNodeIds(startId, edges) {
   const keep = new Set([startId]);
   const visitUp = (id) => {
@@ -39,18 +42,7 @@ function subgraphNodeIds(startId, edges) {
         }
       });
   };
-  const visitDown = (id) => {
-    edges
-      .filter((e) => e.source === id)
-      .forEach((e) => {
-        if (!keep.has(e.target)) {
-          keep.add(e.target);
-          visitDown(e.target);
-        }
-      });
-  };
   visitUp(startId);
-  visitDown(startId);
   return keep;
 }
 
