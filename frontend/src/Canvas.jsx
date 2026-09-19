@@ -524,12 +524,25 @@ export default function Canvas() {
     setRunError("");
   };
 
+  // Params whose schema field is marked "transient" (a one-time confirmation,
+  // not durable config, e.g. Filter's manual_selection) are dropped when
+  // saving — otherwise loading the graph back would restore an
+  // already-confirmed state instead of asking again.
+  const stripTransientParams = (params, manifest) => {
+    const props = manifest?.params_schema?.properties || {};
+    const out = { ...params };
+    Object.entries(props).forEach(([key, field]) => {
+      if (field.transient) delete out[key];
+    });
+    return out;
+  };
+
   const serializeGraph = (nodeList, edgeList) => ({
     nodes: nodeList.map((n) => ({
       id: n.id,
       moduleId: n.data.moduleId,
       position: n.position,
-      params: n.data.params,
+      params: stripTransientParams(n.data.params, n.data.manifest),
       blocks: n.data.blocks?.map((b) => ({
         id: b.id,
         count: b.count,

@@ -16,10 +16,8 @@ from .domain import gather_candidates
 
 
 class FilterParams(BaseModel):
-    # Populated by the node itself (via "Продолжить" on the candidate grid),
-    # not meant to be hand-typed — the ids are each candidate's rel_path, in
-    # the order the user picked them.
-    manual_selection: list[str] = Field(default_factory=list, title="Ручной отбор")
+    # transient: a one-time confirmation, not durable config — see Canvas.jsx's serializeGraph.
+    manual_selection: list[str] = Field(default_factory=list, title="Ручной отбор", json_schema_extra={"transient": True})
 
 
 @dataclass

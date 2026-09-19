@@ -56,12 +56,56 @@ def new_run() -> PipelineRun:
 # node without recomputing everything upstream of it.
 NODE_RESULTS: dict[str, Path] = {}
 
+# The exact (params, resolved-input-signature) that produced each cached
+# NODE_RESULTS entry — checked before trusting that cache, so editing a
+# node's params, swapping its inline file, rewiring which edge feeds it, or
+# an upstream ancestor having itself been recomputed (which changes what an
+# "edge" input resolves to) all correctly invalidate it, instead of a
+# downstream click silently reusing a result that no longer matches the
+# node's current configuration.
+NODE_RECIPES: dict[str, dict] = {}
+
+
+def _input_signature(input_dict: dict | None, results: dict[str, Path]):
+    """A plain, comparable snapshot of what one input dict would actually
+    resolve to right now. For an edge input this is the *current* resolved
+    path of its source (from `results`, already settled earlier in this same
+    topologically-ordered pass) — not just "from": <node_id> — so a
+    recomputed upstream node (new path) invalidates this signature too,
+    cascading the way a fresh computation naturally should."""
+    if not input_dict:
+        return None
+    kind = input_dict.get("kind")
+    if kind == "edge":
+        src_id = input_dict.get("from")
+        return ("edge", src_id, str(results.get(src_id)))
+    if kind == "inline":
+        return ("inline", input_dict.get("name"), input_dict.get("text"), input_dict.get("data_base64"))
+    return None
+
+
+def _node_signature(node: "GraphNode", results: dict[str, Path]):
+    if node.blocks:
+        return tuple(
+            (_input_signature(b.get("input"), results), int(b.get("count", 1)))
+            for b in node.blocks
+        )
+    return _input_signature(node.input, results)
+
+
+def _cache_is_valid(node: "GraphNode", results: dict[str, Path]) -> bool:
+    recipe = NODE_RECIPES.get(node.node_id)
+    if recipe is None:
+        return False
+    return recipe["params"] == node.params and recipe["signature"] == _node_signature(node, results)
+
 
 def _clear_node_results(node_ids: list[str]) -> None:
     for node_id in node_ids:
         path = NODE_RESULTS.pop(node_id, None)
         if path:
             shutil.rmtree(path.parent, ignore_errors=True)
+        NODE_RECIPES.pop(node_id, None)
         pending = PENDING_CANDIDATES.pop(node_id, None)
         if pending:
             shutil.rmtree(pending, ignore_errors=True)
@@ -77,18 +121,20 @@ def clear_all_results() -> None:
     for path in NODE_RESULTS.values():
         shutil.rmtree(path.parent, ignore_errors=True)
     NODE_RESULTS.clear()
+    NODE_RECIPES.clear()
     for workdir in PENDING_CANDIDATES.values():
         shutil.rmtree(workdir, ignore_errors=True)
     PENDING_CANDIDATES.clear()
     RUNS.clear()
 
 
-def _set_node_result(node_id: str, path: Path) -> None:
+def _set_node_result(node_id: str, path: Path, recipe: dict) -> None:
     """Deletes the old workdir a recomputed node's previous result pointed to."""
     old = NODE_RESULTS.get(node_id)
     if old is not None and old.parent != path.parent:
         shutil.rmtree(old.parent, ignore_errors=True)
     NODE_RESULTS[node_id] = path
+    NODE_RECIPES[node_id] = recipe
 
 
 def _set_pending_candidates(node_id: str, workdir: Path) -> None:
@@ -103,17 +149,6 @@ def _clear_pending_candidates(node_id: str) -> None:
     old = PENDING_CANDIDATES.pop(node_id, None)
     if old is not None:
         shutil.rmtree(old, ignore_errors=True)
-
-
-def _invalidate_node_result(node_id: str) -> None:
-    """A node re-entering "waiting" (e.g. Filter re-triggered for a fresh
-    manual pick) no longer has a valid result — without this, its previous
-    confirmed output would stay in NODE_RESULTS and a downstream node run
-    meanwhile would silently reuse that stale value instead of seeing that
-    this ancestor isn't actually decided yet."""
-    old = NODE_RESULTS.pop(node_id, None)
-    if old is not None:
-        shutil.rmtree(old.parent, ignore_errors=True)
 
 
 async def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
@@ -172,7 +207,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 started = True
             else:
                 cached = NODE_RESULTS.get(node.node_id)
-                if cached is not None and cached.exists():
+                if cached is not None and cached.exists() and _cache_is_valid(node, results):
                     results[node.node_id] = cached
                     st.status, st.progress = "done", 1.0
                     continue
@@ -204,7 +239,6 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             if job.status == "waiting":
                 st.status = "waiting"
                 st.candidates = getattr(job, "candidates", None)
-                _invalidate_node_result(node.node_id)
                 workdir = getattr(job, "workdir", None)
                 if workdir is not None:
                     _set_pending_candidates(node.node_id, workdir)
@@ -217,7 +251,8 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             st.status = "done"
             st.progress = 1.0
             results[node.node_id] = job.result
-            _set_node_result(node.node_id, job.result)
+            recipe = {"params": node.params, "signature": _node_signature(node, results)}
+            _set_node_result(node.node_id, job.result, recipe)
             _clear_pending_candidates(node.node_id)
         except Exception as exc:  # noqa: BLE001
             st.status, st.message = "error", str(exc)
