@@ -105,6 +105,17 @@ def _clear_pending_candidates(node_id: str) -> None:
         shutil.rmtree(old, ignore_errors=True)
 
 
+def _invalidate_node_result(node_id: str) -> None:
+    """A node re-entering "waiting" (e.g. Filter re-triggered for a fresh
+    manual pick) no longer has a valid result — without this, its previous
+    confirmed output would stay in NODE_RESULTS and a downstream node run
+    meanwhile would silently reuse that stale value instead of seeing that
+    this ancestor isn't actually decided yet."""
+    old = NODE_RESULTS.pop(node_id, None)
+    if old is not None:
+        shutil.rmtree(old.parent, ignore_errors=True)
+
+
 async def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
     """Shared by a node's single `input` and each block's own `input` in
     `blocks` — same {"kind": "inline"|"edge", ...} shape either way."""
@@ -193,6 +204,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             if job.status == "waiting":
                 st.status = "waiting"
                 st.candidates = getattr(job, "candidates", None)
+                _invalidate_node_result(node.node_id)
                 workdir = getattr(job, "workdir", None)
                 if workdir is not None:
                     _set_pending_candidates(node.node_id, workdir)
