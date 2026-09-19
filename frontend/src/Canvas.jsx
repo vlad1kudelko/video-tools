@@ -90,6 +90,7 @@ export default function Canvas() {
   const [future, setFuture] = useState([]);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
+  const activeSocketsRef = useRef(new Set());
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
@@ -326,7 +327,7 @@ export default function Canvas() {
       const graphNodes = buildGraphNodes(scopedNodes, scopedEdges);
       try {
         const { run_id } = await runPipeline({ nodes: graphNodes, start_from: startFrom });
-        subscribeRun(run_id, (update) => {
+        const socket = subscribeRun(run_id, (update) => {
           update.nodes.forEach((n) =>
             // An empty message (e.g. a cache-served node) must not blank out
             // whatever result text is already showing from a previous run.
@@ -339,6 +340,8 @@ export default function Canvas() {
           );
           if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
         });
+        activeSocketsRef.current.add(socket);
+        socket.addEventListener("close", () => activeSocketsRef.current.delete(socket));
       } catch (err) {
         setRunError(String(err.message || err));
       }
@@ -517,11 +520,17 @@ export default function Canvas() {
   };
 
   const clearFiles = async () => {
+    activeSocketsRef.current.forEach((socket) => socket.close());
+    activeSocketsRef.current.clear();
     await clearAllFiles();
     setNodes((nds) =>
-      nds.map((n) => ({ ...n, data: { ...n.data, status: undefined, statusLabel: undefined, progress: undefined } }))
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, status: undefined, statusLabel: undefined, progress: undefined, candidates: undefined },
+      }))
     );
     setRunError("");
+    setGraphStatus("");
   };
 
   // Params whose schema field is marked "transient" (a one-time confirmation,
