@@ -4,11 +4,12 @@ import ModuleNode from "./ModuleNode.jsx";
 import CombinatorNode from "./CombinatorNode.jsx";
 import ReframeNode from "./ReframeNode.jsx";
 import S3FileNode from "./S3FileNode.jsx";
+import FilterNode from "./FilterNode.jsx";
 import DeletableEdge from "./DeletableEdge.jsx";
 import { clearAllFiles, listModules, loadGraph, runPipeline, saveGraph, subscribeRun } from "./api.js";
 import { InfoIcon, PORT_LEGEND } from "./nodeShared.jsx";
 
-const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, s3file: S3FileNode };
+const nodeTypes = { module: ModuleNode, combinator: CombinatorNode, reframe: ReframeNode, s3file: S3FileNode, filter: FilterNode };
 const edgeTypes = { deletable: DeletableEdge };
 
 function topoSort(nodes, edges) {
@@ -341,6 +342,7 @@ export default function Canvas() {
               status: n.status,
               progress: n.progress,
               ...(n.message ? { statusLabel: n.message } : {}),
+              ...(n.candidates ? { candidates: n.candidates } : {}),
             })
           );
           if (update.status === "error") setRunError("Пайплайн завершился с ошибкой — см. статус ноды");
@@ -352,14 +354,54 @@ export default function Canvas() {
     [buildGraphNodes, updateNodeData]
   );
 
+  // Clicking a node's own status dot is "start this node over" everywhere.
+  // For Filter (a two-step node — pick, then confirm) that has to mean back
+  // to step 1: a leftover non-empty manual_selection from a previous
+  // confirm would otherwise make the node skip straight back to "done" with
+  // the old picks instead of showing the candidate grid again.
   const runFromNode = useCallback(
-    (nodeId) => runGraph(nodeId, nodesRef.current, edgesRef.current),
-    [runGraph]
+    (nodeId) => {
+      const node = nodesRef.current.find((n) => n.id === nodeId);
+      let nodeList = nodesRef.current;
+      if (node?.data.moduleId === "filter" && node.data.params?.manual_selection?.length) {
+        nodeList = nodesRef.current.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...n.data, params: { ...n.data.params, manual_selection: [] } } } : n
+        );
+        nodesRef.current = nodeList;
+        setNodes(nodeList);
+      }
+      return runGraph(nodeId, nodeList, edgesRef.current);
+    },
+    [runGraph, setNodes]
+  );
+
+  // Filter's "Продолжить": params.manual_selection must be up to date in the
+  // exact node list runGraph reads — going through setNodes + the nodesRef
+  // effect would race (the effect runs after this call returns), so the
+  // updated list is built and used directly, not read back from state/ref.
+  const onSubmitSelection = useCallback(
+    (nodeId, selection) => {
+      const updated = nodesRef.current.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, params: { ...n.data.params, manual_selection: selection } } } : n
+      );
+      nodesRef.current = updated;
+      setNodes(updated);
+      runGraph(nodeId, updated, edgesRef.current);
+    },
+    [runGraph, setNodes]
   );
 
   const widgetHandlers = useMemo(
-    () => ({ onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode, onRunFromHere: runFromNode }),
-    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode, runFromNode]
+    () => ({
+      onParamChange,
+      onInlineTextChange,
+      onInlineFileChange,
+      onFieldFocus,
+      onDeleteNode,
+      onRunFromHere: runFromNode,
+      onSubmitSelection,
+    }),
+    [onParamChange, onInlineTextChange, onInlineFileChange, onFieldFocus, onDeleteNode, runFromNode, onSubmitSelection]
   );
 
   const combinatorHandlers = useMemo(

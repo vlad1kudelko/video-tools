@@ -12,53 +12,77 @@ from ..config import TMP
 from ..pipeline.manifest import ModuleManifest, PipelineInput
 from ..pipeline.registry import register
 from ..pipeline.types import PortType
-from .domain import rank_files
+from .domain import gather_candidates
 
 
 class FilterParams(BaseModel):
-    move_square_to_end: bool = Field(default=True, title="Квадратные — в конец списка")
+    # Populated by the node itself (via "Продолжить" on the candidate grid),
+    # not meant to be hand-typed — the ids are each candidate's rel_path, in
+    # the order the user picked them.
+    manual_selection: list[str] = Field(default_factory=list, title="Ручной отбор")
 
 
 @dataclass
 class _Job:
-    status: str = "processing"  # processing | done | error
+    status: str = "processing"  # processing | waiting | done | error
     message: str = ""
     total: int = 0
     done: int = 0
     progress: float = 0.0
     result: Path | None = None
+    candidates: list[dict] | None = None  # only set when status == "waiting"
+    workdir: Path | None = None  # only set when status == "waiting" — where the runner can serve candidate bytes from
+
+
+def _extract(workdir: Path, data: bytes, name: str) -> tuple[list[Path], list[str], Path]:
+    """Returns (paths, rel_names, base_dir) — rel_names are stable across
+    separate runs of the same input (the zip-internal path, or the bare
+    filename for a single non-archive upload), used as each candidate's id;
+    base_dir is the one directory every path lives under, so a candidate id
+    always resolves back to a real file via base_dir / rel_name."""
+    base_dir = workdir / "in"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    if name.lower().endswith(".zip"):
+        src_zip = workdir / "upload.zip"
+        src_zip.write_bytes(data)
+        with zipfile.ZipFile(src_zip, "r") as zin:
+            rel_names = [i.filename for i in zin.infolist() if not i.is_dir()]
+            zin.extractall(base_dir)
+        return [base_dir / n for n in rel_names], rel_names, base_dir
+    rel_name = name or "input"
+    (base_dir / rel_name).write_bytes(data)
+    return [base_dir / rel_name], [rel_name], base_dir
 
 
 async def _run(job: _Job, data: bytes, name: str, params: FilterParams) -> None:
     workdir = TMP / uuid4().hex[:12]
     workdir.mkdir(parents=True, exist_ok=True)
     try:
-        if name.lower().endswith(".zip"):
-            extract_dir = workdir / "in"
-            extract_dir.mkdir(parents=True, exist_ok=True)
-            src_zip = workdir / "upload.zip"
-            src_zip.write_bytes(data)
-            with zipfile.ZipFile(src_zip, "r") as zin:
-                names = [i.filename for i in zin.infolist() if not i.is_dir()]
-                zin.extractall(extract_dir)
-            paths = [extract_dir / n for n in names]
-            came_as_archive = True
-        else:
-            src = workdir / (name or "input")
-            src.write_bytes(data)
-            paths = [src]
-            came_as_archive = False
+        paths, rel_names, base_dir = _extract(workdir, data, name)
 
-        job.message = "Анализ разрешения"
-        ranked, vector = await rank_files(paths, job, move_square_to_end=params.move_square_to_end)
-        ordered = ranked + vector
+        if not params.manual_selection:
+            job.message = "Анализ разрешения"
+            candidates = await gather_candidates(paths, rel_names, job)
+            if not candidates:
+                job.status, job.message = "error", "Нет файлов с разрешением — нечего выбирать"
+                return
+            job.candidates = [
+                {"id": c.rel_path, "name": Path(c.rel_path).name, "kind": c.kind, "width": c.width, "height": c.height, "size": c.size}
+                for c in candidates
+            ]
+            job.workdir = base_dir
+            job.message = f"ожидает отбора: {len(candidates)}"
+            job.status = "waiting"
+            return
 
+        by_rel = dict(zip(rel_names, paths))
+        ordered = [by_rel[rid] for rid in params.manual_selection if rid in by_rel]
         if not ordered:
-            job.status, job.message = "error", "Нет файлов с разрешением — всё отфильтровано"
+            job.status, job.message = "error", "Выбранные файлы не найдены во входных данных"
             return
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        if len(ordered) == 1 and not came_as_archive:
+        if len(ordered) == 1 and len(paths) == 1:
             renamed = ordered[0].with_name(f"app_filter-{timestamp}{ordered[0].suffix}")
             ordered[0].rename(renamed)
             job.result = renamed
@@ -92,7 +116,8 @@ register(ModuleManifest(
     output_port=PortType.FILE_LIST,
     start=_start,
     description=[
-        "Сортирует список файлов по разрешению кадра и по размеру — по убыванию",
-        "Квадратные файлы (ширина = высота) можно опустить в конец списка отдельным чекбоксом",
+        "Останавливается и показывает превью всех файлов на входе",
+        "Вы вручную выбираете нужные и порядок, в котором их отправить дальше — по клику",
+        "После нажатия «Продолжить» отдаёт только выбранное, в выбранном порядке",
     ],
 ))

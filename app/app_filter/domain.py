@@ -13,8 +13,8 @@ VECTOR_EXT = {".svg", ".eps", ".ai"}
 def classify(name: str) -> str:
     """"raster" (has a real pixel resolution, readable via ffprobe) |
     "vector" (an image format with no fixed resolution — SVG and friends;
-    still a picture, so it's kept, just always ranked last) | "unsupported"
-    (no visual resolution at all, e.g. .txt/.mp3 — dropped entirely)."""
+    still a picture, so it's kept) | "unsupported" (no visual resolution at
+    all, e.g. .txt/.mp3 — dropped entirely, never offered as a candidate)."""
     ext = Path(name).suffix.lower()
     if ext in VECTOR_EXT:
         return "vector"
@@ -30,38 +30,33 @@ class _ProgressJob(Protocol):
 
 
 @dataclass
-class _Ranked:
-    path: Path
-    area: int
+class Candidate:
+    rel_path: str  # stable id — the zip-internal path, same across separate runs of the same input
+    path: Path  # actual filesystem location for *this* run
+    kind: str  # "raster" | "vector"
+    width: int
+    height: int
     size: int
-    is_square: bool
 
 
-async def rank_files(
-    paths: list[Path], job: _ProgressJob, move_square_to_end: bool = True
-) -> tuple[list[Path], list[Path]]:
-    """Sort by resolution descending, file size as the tiebreak. Vector
-    images (no fixed resolution but still pictures) are kept and appended
-    after, in their original order. Anything with no visual resolution at
-    all — a non-media file, or a raster file ffprobe couldn't read — is
-    dropped. Perfectly square rasters (width == height — usually icons,
-    avatars, thumbnails rather than footage) are, when `move_square_to_end`
-    is set, pushed after every non-square one, still ahead of vectors."""
+async def gather_candidates(paths: list[Path], rel_names: list[str], job: _ProgressJob) -> list[Candidate]:
+    """Probe every file, drop unsupported ones, sort raster candidates by
+    resolution descending (file size as the tiebreak), vector images
+    appended after in their original order — a sensible default arrangement
+    for a human to then pick from and reorder by hand."""
     job.total = len(paths)
-    ranked: list[_Ranked] = []
-    vector: list[Path] = []
-    for i, path in enumerate(paths):
+    raster: list[Candidate] = []
+    vector: list[Candidate] = []
+    for i, (path, rel) in enumerate(zip(paths, rel_names)):
         kind = classify(path.name)
         if kind == "vector":
-            vector.append(path)
+            vector.append(Candidate(rel, path, "vector", 0, 0, path.stat().st_size))
         elif kind == "raster":
             info = await probe(path)
             w, h = info["width"], info["height"]
             if w and h:
-                ranked.append(_Ranked(path, w * h, path.stat().st_size, w == h))
+                raster.append(Candidate(rel, path, "raster", w, h, path.stat().st_size))
         job.done = i + 1
         job.progress = job.done / job.total if job.total else 0.0
-    ranked.sort(key=lambda r: (-r.area, -r.size))
-    if move_square_to_end:
-        ranked.sort(key=lambda r: r.is_square)  # stable: keeps the ranking above within each group
-    return [r.path for r in ranked], vector
+    raster.sort(key=lambda c: (-(c.width * c.height), -c.size))
+    return raster + vector

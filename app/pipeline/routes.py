@@ -1,11 +1,12 @@
 import asyncio
+import mimetypes
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from fastapi.responses import FileResponse
 
 from . import s3_store
 from .registry import MODULES
-from .runner import NODE_RESULTS, RUNS, GraphRequest, clear_all_results, new_run, run_pipeline
+from .runner import NODE_RESULTS, PENDING_CANDIDATES, RUNS, GraphRequest, clear_all_results, new_run, run_pipeline
 
 router = APIRouter()
 
@@ -49,6 +50,7 @@ async def ws(run_id: str, sock: WebSocket):
                 {
                     "node_id": n.node_id, "module_id": n.module_id,
                     "status": n.status, "message": n.message, "progress": round(n.progress, 3),
+                    "candidates": n.candidates,
                 }
                 for n in run.nodes
             ],
@@ -73,6 +75,20 @@ def download_node_result(node_id: str):
     if not path or not path.exists():
         raise HTTPException(404)
     return FileResponse(path, filename=path.name)
+
+
+@router.get("/api/pipeline/node/{node_id}/candidate/{candidate_id:path}")
+def get_candidate_file(node_id: str, candidate_id: str):
+    workdir = PENDING_CANDIDATES.get(node_id)
+    if not workdir:
+        raise HTTPException(404)
+    path = (workdir / candidate_id).resolve()
+    # candidate_id comes from the browser — refuse anything that escapes the
+    # node's own extracted-files directory (e.g. via "..").
+    if workdir.resolve() not in path.parents or not path.exists():
+        raise HTTPException(404)
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
 
 
 @router.post("/api/pipeline/graph")

@@ -102,6 +102,7 @@ const STATUS_COLORS = {
   idle: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
   queued: { base: "bg-neutral-400", hover: "hover:bg-neutral-600", icon: "text-neutral-950" },
   processing: { base: "bg-amber-400 animate-pulse", hover: "hover:bg-amber-600", icon: "text-amber-950" },
+  waiting: { base: "bg-sky-400 animate-pulse", hover: "hover:bg-sky-600", icon: "text-sky-950" },
   done: { base: "bg-emerald-400", hover: "hover:bg-emerald-600", icon: "text-emerald-950" },
   error: { base: "bg-red-400", hover: "hover:bg-red-600", icon: "text-red-950" },
 };
@@ -152,6 +153,7 @@ export async function fileToBase64(file) {
 export const STATUS_LABELS = {
   queued: "в очереди",
   processing: "выполняется",
+  waiting: "ждёт отбора",
   done: "готово",
   error: "ошибка",
 };
@@ -159,7 +161,7 @@ export const STATUS_LABELS = {
 export function NodeProgressBar({ status, progress }) {
   // Always occupies its height, even idle — so a node's total height doesn't
   // shift once it's actually run for the first time.
-  const pct = status === "processing" || status === "done" ? Math.round((progress || 0) * 100) : 0;
+  const pct = status === "processing" || status === "done" ? Math.round((progress || 0) * 100) : status === "waiting" ? 100 : 0;
   return (
     <div className="h-1.5 w-full overflow-hidden bg-neutral-800">
       <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${pct}%` }} />

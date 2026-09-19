@@ -17,9 +17,10 @@ POLL_SECONDS = 0.25
 class NodeStatus:
     node_id: str
     module_id: str
-    status: str = "queued"  # queued | processing | done | error
+    status: str = "queued"  # queued | processing | waiting | done | error
     message: str = ""
     progress: float = 0.0
+    candidates: list | None = None  # only set when status == "waiting" — see app_filter
 
 
 @dataclass
@@ -61,12 +62,24 @@ def _clear_node_results(node_ids: list[str]) -> None:
         path = NODE_RESULTS.pop(node_id, None)
         if path:
             shutil.rmtree(path.parent, ignore_errors=True)
+        pending = PENDING_CANDIDATES.pop(node_id, None)
+        if pending:
+            shutil.rmtree(pending, ignore_errors=True)
+
+
+# A node paused in "waiting" (e.g. Filter's manual pick step) keeps its
+# extracted candidate files here so a browser request can fetch preview
+# bytes for them — see routes.py's candidate-serving route.
+PENDING_CANDIDATES: dict[str, Path] = {}
 
 
 def clear_all_results() -> None:
     for path in NODE_RESULTS.values():
         shutil.rmtree(path.parent, ignore_errors=True)
     NODE_RESULTS.clear()
+    for workdir in PENDING_CANDIDATES.values():
+        shutil.rmtree(workdir, ignore_errors=True)
+    PENDING_CANDIDATES.clear()
     RUNS.clear()
 
 
@@ -76,6 +89,20 @@ def _set_node_result(node_id: str, path: Path) -> None:
     if old is not None and old.parent != path.parent:
         shutil.rmtree(old.parent, ignore_errors=True)
     NODE_RESULTS[node_id] = path
+
+
+def _set_pending_candidates(node_id: str, workdir: Path) -> None:
+    """Deletes the old candidates workdir a re-paused node previously pointed to."""
+    old = PENDING_CANDIDATES.get(node_id)
+    if old is not None and old != workdir:
+        shutil.rmtree(old, ignore_errors=True)
+    PENDING_CANDIDATES[node_id] = workdir
+
+
+def _clear_pending_candidates(node_id: str) -> None:
+    old = PENDING_CANDIDATES.pop(node_id, None)
+    if old is not None:
+        shutil.rmtree(old, ignore_errors=True)
 
 
 async def _resolve_input_dict(input_dict: dict | None, results: dict[str, Path]) -> PipelineInput | None:
@@ -163,6 +190,14 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
                 st.progress = getattr(job, "progress", 0.0)
                 await asyncio.sleep(POLL_SECONDS)
             st.message = job.message
+            if job.status == "waiting":
+                st.status = "waiting"
+                st.candidates = getattr(job, "candidates", None)
+                workdir = getattr(job, "workdir", None)
+                if workdir is not None:
+                    _set_pending_candidates(node.node_id, workdir)
+                run.status = "waiting"
+                return
             if job.status != "done" or not job.result:
                 st.status = "error"
                 run.status = "error"
@@ -171,6 +206,7 @@ async def run_pipeline(run: PipelineRun, graph: GraphRequest) -> None:
             st.progress = 1.0
             results[node.node_id] = job.result
             _set_node_result(node.node_id, job.result)
+            _clear_pending_candidates(node.node_id)
         except Exception as exc:  # noqa: BLE001
             st.status, st.message = "error", str(exc)
             run.status = "error"
